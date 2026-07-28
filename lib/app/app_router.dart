@@ -31,7 +31,7 @@ abstract final class AppRouter {
       case AppRoutes.login:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => LoginScreen(authController: authController),
+          builder: (_) => AuthGate(authController: authController),
         );
 
       case AppRoutes.guestHome:

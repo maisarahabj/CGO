@@ -33,10 +33,8 @@ class _CampusGoAppState extends State<CampusGoApp> {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       initialRoute: AppRoutes.home,
-      onGenerateRoute: (settings) => AppRouter.onGenerateRoute(
-        settings,
-        authController: _authController,
-      ),
+      onGenerateRoute: (settings) =>
+          AppRouter.onGenerateRoute(settings, authController: _authController),
     );
   }
 }

@@ -52,14 +52,159 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
 
   assets:
     - assets/features/auth/login_background.png
     - assets/branding/logos/campusgo_location_pin.png
+
+  fonts:
+    # ------------------------------------------------------------
+    # Raleway
+    # ------------------------------------------------------------
+    - family: Raleway
+      fonts:
+        - asset: assets/fonts/Raleway/static/Raleway-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/Raleway/static/Raleway-ThinItalic.ttf
+          weight: 100
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-ExtraLight.ttf
+          weight: 200
+        - asset: assets/fonts/Raleway/static/Raleway-ExtraLightItalic.ttf
+          weight: 200
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Raleway/static/Raleway-LightItalic.ttf
+          weight: 300
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Raleway/static/Raleway-Italic.ttf
+          weight: 400
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Raleway/static/Raleway-MediumItalic.ttf
+          weight: 500
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Raleway/static/Raleway-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Raleway/static/Raleway-BoldItalic.ttf
+          weight: 700
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Raleway/static/Raleway-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+
+        - asset: assets/fonts/Raleway/static/Raleway-Black.ttf
+          weight: 900
+        - asset: assets/fonts/Raleway/static/Raleway-BlackItalic.ttf
+          weight: 900
+          style: italic
+
+    # ------------------------------------------------------------
+    # Roboto
+    # ------------------------------------------------------------
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto/static/Roboto-Thin.ttf
+          weight: 100
+        - asset: assets/fonts/Roboto/static/Roboto-ThinItalic.ttf
+          weight: 100
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-ExtraLight.ttf
+          weight: 200
+        - asset: assets/fonts/Roboto/static/Roboto-ExtraLightItalic.ttf
+          weight: 200
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Roboto/static/Roboto-LightItalic.ttf
+          weight: 300
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Roboto/static/Roboto-Italic.ttf
+          weight: 400
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto/static/Roboto-MediumItalic.ttf
+          weight: 500
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Roboto/static/Roboto-SemiBoldItalic.ttf
+          weight: 600
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Roboto/static/Roboto-BoldItalic.ttf
+          weight: 700
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-ExtraBold.ttf
+          weight: 800
+        - asset: assets/fonts/Roboto/static/Roboto-ExtraBoldItalic.ttf
+          weight: 800
+          style: italic
+
+        - asset: assets/fonts/Roboto/static/Roboto-Black.ttf
+          weight: 900
+        - asset: assets/fonts/Roboto/static/Roboto-BlackItalic.ttf
+          weight: 900
+          style: italic
+
+    # ------------------------------------------------------------
+    # Ubuntu
+    # ------------------------------------------------------------
+    - family: Ubuntu
+      fonts:
+        - asset: assets/fonts/Ubuntu/Ubuntu-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Ubuntu/Ubuntu-LightItalic.ttf
+          weight: 300
+          style: italic
+
+        - asset: assets/fonts/Ubuntu/Ubuntu-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Ubuntu/Ubuntu-Italic.ttf
+          weight: 400
+          style: italic
+
+        - asset: assets/fonts/Ubuntu/Ubuntu-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Ubuntu/Ubuntu-MediumItalic.ttf
+          weight: 500
+          style: italic
+
+        - asset: assets/fonts/Ubuntu/Ubuntu-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Ubuntu/Ubuntu-BoldItalic.ttf
+          weight: 700
+          style: italic
 
   # To add assets to your application, add an assets section, like this:
   # assets:

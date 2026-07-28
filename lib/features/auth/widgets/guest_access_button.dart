@@ -19,17 +19,18 @@ class GuestAccessButton extends StatelessWidget {
         onPressed: isEnabled ? onPressed : null,
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFF4A057E),
-          side: const BorderSide(
-            color: Color(0xFF4A057E),
-            width: 2.4,
-          ),
+          side: const BorderSide(color: Color(0xFF4A057E), width: 2.4),
           shape: const StadiumBorder(),
-          textStyle: const TextStyle(
+          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        child: const Text(
+          'Start as Guest',
+          style: TextStyle(
+            fontFamily: 'Raleway',
             fontSize: 20,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
           ),
         ),
-        child: const Text('Start as Guest'),
       ),
     );
   }

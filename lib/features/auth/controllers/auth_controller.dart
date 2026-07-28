@@ -9,7 +9,7 @@ import '../services/auth_service.dart';
 /// Holds the authentication and role state used by CampusGO screens.
 class AuthController extends ChangeNotifier {
   AuthController({AuthService? authService})
-      : _authService = authService ?? AuthService() {
+    : _authService = authService ?? AuthService() {
     _authSubscription = _authService.authStateChanges.listen(
       _handleAuthStateChange,
       onError: _handleAuthStreamError,
@@ -36,17 +36,13 @@ class AuthController extends ChangeNotifier {
       await _loadRoleFromCurrentSession();
     } catch (_) {
       _role = UserRole.guest;
-      _errorMessage =
-          'We could not load your account. Please sign in again.';
+      _errorMessage = 'We could not load your account. Please sign in again.';
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<bool> signIn({
-    required String email,
-    required String password,
-  }) async {
+  Future<bool> signIn({required String email, required String password}) async {
     _errorMessage = null;
     _setLoading(true);
 
@@ -79,8 +75,7 @@ class AuthController extends ChangeNotifier {
       _errorMessage = error.message;
       return false;
     } catch (_) {
-      _errorMessage =
-          'We could not send the reset email. Please try again.';
+      _errorMessage = 'We could not send the reset email. Please try again.';
       return false;
     } finally {
       _setLoading(false);
@@ -132,8 +127,9 @@ class AuthController extends ChangeNotifier {
       return;
     }
 
-    final profileRole =
-        (await _authService.loadCurrentProfileRole())?.toLowerCase();
+    final profileRole = (await _authService.loadCurrentProfileRole())
+        ?.trim()
+        .toLowerCase();
 
     _role = switch (profileRole) {
       'admin' => UserRole.admin,

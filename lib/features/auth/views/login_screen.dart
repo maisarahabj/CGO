@@ -7,10 +7,7 @@ import '../controllers/auth_controller.dart';
 import '../widgets/guest_access_button.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    required this.authController,
-    super.key,
-  });
+  const LoginScreen({required this.authController, super.key});
 
   final AuthController authController;
 
@@ -105,8 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = resetEmailController.text;
     resetEmailController.dispose();
 
-    final didSend =
-        await widget.authController.sendPasswordResetEmail(email);
+    final didSend = await widget.authController.sendPasswordResetEmail(email);
 
     if (!mounted) {
       return;
@@ -116,16 +112,14 @@ class _LoginScreenState extends State<LoginScreen> {
       didSend
           ? 'Password-reset instructions were sent to your email.'
           : widget.authController.errorMessage ??
-              'The password-reset email could not be sent.',
+                'The password-reset email could not be sent.',
       isError: !didSend,
     );
   }
 
   void _continueAsGuest() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(
-        builder: (_) => const GuestHomeScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const GuestHomeScreen()),
     );
   }
 
@@ -135,8 +129,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor:
-              isError ? const Color(0xFFB3261E) : const Color(0xFF276749),
+          backgroundColor: isError
+              ? const Color(0xFFB3261E)
+              : const Color(0xFF276749),
         ),
       );
   }
@@ -148,8 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Please enter your email.';
     }
 
-    final looksLikeEmail =
-        RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    final looksLikeEmail = RegExp(
+      r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+    ).hasMatch(email);
 
     if (!looksLikeEmail) {
       return 'Please enter a valid email address.';
@@ -182,8 +178,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 final canvasHeight = constraints.maxHeight < 720
                     ? 780.0
                     : constraints.maxHeight;
-                final panelHeight =
-                    (canvasHeight * 0.55).clamp(500.0, 560.0).toDouble();
+                final panelHeight = (canvasHeight * 0.55)
+                    .clamp(500.0, 560.0)
+                    .toDouble();
 
                 return SingleChildScrollView(
                   reverse: keyboardIsOpen,
@@ -192,18 +189,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _LoginBackground(
-                          assetPath: AppAssets.loginBackground,
-                        ),
+                        _LoginBackground(assetPath: AppAssets.loginBackground),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [
-                                Colors.transparent,
-                                Color(0x170B2942),
-                              ],
+                              colors: [Colors.transparent, Color(0x170B2942)],
                               stops: [0.56, 1],
                             ),
                           ),
@@ -221,8 +213,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                 18,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF9FCFF)
-                                    .withValues(alpha: 0.92),
+                                color: const Color(
+                                  0xFFF9FCFF,
+                                ).withValues(alpha: 0.92),
                                 borderRadius: const BorderRadius.vertical(
                                   top: Radius.circular(48),
                                 ),
@@ -248,8 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             AutofillHints.email,
                                           ],
                                           validator: _validateEmail,
-                                          textInputAction:
-                                              TextInputAction.next,
+                                          textInputAction: TextInputAction.next,
                                         ),
                                         const SizedBox(height: 16),
                                         _LoginTextField(
@@ -260,8 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                             AutofillHints.password,
                                           ],
                                           validator: _validatePassword,
-                                          textInputAction:
-                                              TextInputAction.done,
+                                          textInputAction: TextInputAction.done,
                                           onFieldSubmitted: (_) => _signIn(),
                                           suffixIcon: IconButton(
                                             tooltip: _obscurePassword
@@ -276,10 +267,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                             icon: Icon(
                                               _obscurePassword
                                                   ? Icons
-                                                      .visibility_off_outlined
+                                                        .visibility_off_outlined
                                                   : Icons.visibility_outlined,
-                                              color:
-                                                  const Color(0xFF6C6C73),
+                                              color: const Color(0xFF6C6C73),
                                             ),
                                           ),
                                         ),
@@ -288,22 +278,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                           child: TextButton(
                                             onPressed:
                                                 widget.authController.isLoading
-                                                    ? null
-                                                    : _showForgotPasswordDialog,
+                                                ? null
+                                                : _showForgotPasswordDialog,
                                             style: TextButton.styleFrom(
-                                              foregroundColor:
-                                                  const Color(0xFF4A057E),
+                                              foregroundColor: const Color(
+                                                0xFF4A057E,
+                                              ),
                                               padding:
                                                   const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                              ),
+                                                    horizontal: 6,
+                                                  ),
                                               textStyle: const TextStyle(
                                                 fontSize: 17,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
-                                            child:
-                                                const Text('Forgot password?'),
+                                            child: const Text(
+                                              'Forgot password?',
+                                            ),
                                           ),
                                         ),
                                         _GradientSignInButton(
@@ -355,11 +347,7 @@ class _LoginBackground extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFBCECF1),
-                Color(0xFF8ED9E5),
-                Color(0xFFE7F8F8),
-              ],
+              colors: [Color(0xFFBCECF1), Color(0xFF8ED9E5), Color(0xFFE7F8F8)],
             ),
           ),
           child: Center(
@@ -418,29 +406,20 @@ class _CampusGoBrand extends StatelessWidget {
                   child: Text.rich(
                     TextSpan(
                       style: const TextStyle(
+                        fontFamily: 'Raleway',
                         fontSize: 43,
-                        height: 0.95,
                         fontWeight: FontWeight.w800,
+                        height: 0.95,
                         letterSpacing: -1.5,
                       ),
-                      children: [
+                      children: const [
                         TextSpan(
                           text: 'Campus',
-                          style: TextStyle(
-                            foreground: Paint()
-                              ..shader = const LinearGradient(
-                                colors: [
-                                  Color(0xFF3536C4),
-                                  Color(0xFF65288E),
-                                ],
-                              ).createShader(
-                                const Rect.fromLTWH(0, 0, 190, 50),
-                              ),
-                          ),
+                          style: TextStyle(color: Color(0xFF3D36A3)),
                         ),
-                        const TextSpan(
+                        TextSpan(
                           text: 'GO',
-                          style: TextStyle(color: Color(0xFFFF1010)),
+                          style: TextStyle(color: Color(0xFFFF0000)),
                         ),
                       ],
                     ),
@@ -453,18 +432,22 @@ class _CampusGoBrand extends StatelessWidget {
                   child: Text.rich(
                     TextSpan(
                       style: TextStyle(
-                        color: Color(0xFF4A176B),
+                        fontFamily: 'Roboto',
                         fontSize: 19,
-                        height: 1,
+                        fontWeight: FontWeight.w500,
                         fontStyle: FontStyle.italic,
+                        height: 1,
+                        color: Color(0xFF4A176B),
                       ),
                       children: [
                         TextSpan(text: 'A '),
                         TextSpan(
                           text: 'UNIMY',
                           style: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontWeight: FontWeight.w700,
+                            fontStyle: FontStyle.italic,
                             color: Color(0xFFE31B23),
-                            fontWeight: FontWeight.w800,
                           ),
                         ),
                         TextSpan(text: ' Navigation App'),
@@ -514,16 +497,10 @@ class _LoginTextField extends StatelessWidget {
       obscureText: obscureText,
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
-      style: const TextStyle(
-        color: Color(0xFF25252B),
-        fontSize: 18,
-      ),
+      style: const TextStyle(color: Color(0xFF25252B), fontSize: 18),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(
-          color: Color(0xFFB8B8BD),
-          fontSize: 19,
-        ),
+        hintStyle: const TextStyle(color: Color(0xFFB8B8BD), fontSize: 19),
         errorMaxLines: 2,
         filled: true,
         fillColor: const Color(0xFFFDFDFE),
@@ -534,31 +511,19 @@ class _LoginTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         enabledBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(
-            color: Color(0xFF0077C8),
-            width: 1.4,
-          ),
+          borderSide: BorderSide(color: Color(0xFF0077C8), width: 1.4),
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(
-            color: Color(0xFF4A057E),
-            width: 2,
-          ),
+          borderSide: BorderSide(color: Color(0xFF4A057E), width: 2),
         ),
         errorBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(
-            color: Color(0xFFB3261E),
-            width: 1.5,
-          ),
+          borderSide: BorderSide(color: Color(0xFFB3261E), width: 1.5),
         ),
         focusedErrorBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(
-            color: Color(0xFFB3261E),
-            width: 2,
-          ),
+          borderSide: BorderSide(color: Color(0xFFB3261E), width: 2),
         ),
       ),
     );
@@ -580,11 +545,7 @@ class _GradientSignInButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF3235BD),
-            Color(0xFF7D2C87),
-            Color(0xFFFF2A0A),
-          ],
+          colors: [Color(0xFF3235BD), Color(0xFF7D2C87), Color(0xFFFF2A0A)],
         ),
         boxShadow: const [
           BoxShadow(
@@ -616,6 +577,7 @@ class _GradientSignInButton extends StatelessWidget {
               : const Text(
                   'Sign In',
                   style: TextStyle(
+                    fontFamily: 'Raleway',
                     color: Colors.white,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,

@@ -22,13 +22,18 @@ class ProfileModel {
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
     return ProfileModel(
       id: json['id'] as String,
-      fullName: json['full_name'] as String?,
-      unimyId: json['unimy_id'] as String?,
+      fullName: _cleanOptionalText(json['full_name']),
+      unimyId: _cleanOptionalText(json['unimy_id']),
       dob: _parseOptionalDateTime(json['dob']),
-      profPic: json['prof_pic'] as String?,
-      role: json['role'] as String,
+      profPic: _cleanOptionalText(json['prof_pic']),
+      role: (json['role'] as String?)?.trim() ?? '',
       createdAt: _parseOptionalDateTime(json['created_at']),
     );
+  }
+
+  /// Alias used by services that refer to a Supabase row as a map.
+  factory ProfileModel.fromMap(Map<String, dynamic> map) {
+    return ProfileModel.fromJson(map);
   }
 
   /// Converts this model back into Supabase column names.
@@ -44,7 +49,42 @@ class ProfileModel {
     };
   }
 
-  static DateTime? _parseOptionalDateTime(dynamic value) {
+  /// Produces initials for the profile-photo fallback.
+  ///
+  /// "Jane Doe" becomes "JD".
+  /// "Jane" becomes "J".
+  String get initials {
+    final cleanedName = fullName?.trim();
+
+    if (cleanedName == null || cleanedName.isEmpty) {
+      return 'U';
+    }
+
+    final nameParts = cleanedName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (nameParts.isEmpty) {
+      return 'U';
+    }
+
+    if (nameParts.length == 1) {
+      return nameParts.first[0].toUpperCase();
+    }
+
+    final firstInitial = nameParts.first[0];
+    final lastInitial = nameParts.last[0];
+
+    return '$firstInitial$lastInitial'.toUpperCase();
+  }
+
+  /// UI-friendly name for the `prof_pic` database field.
+  String? get profileImageUrl {
+    return _cleanOptionalText(profPic);
+  }
+
+  static DateTime? _parseOptionalDateTime(Object? value) {
     if (value == null) {
       return null;
     }
@@ -53,6 +93,16 @@ class ProfileModel {
       return value;
     }
 
-    return DateTime.parse(value as String);
+    return DateTime.tryParse(value.toString());
+  }
+
+  static String? _cleanOptionalText(Object? value) {
+    final text = value?.toString().trim();
+
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    return text;
   }
 }

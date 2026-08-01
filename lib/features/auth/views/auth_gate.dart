@@ -23,7 +23,7 @@ class AuthGate extends StatelessWidget {
 
         return switch (authController.role) {
           UserRole.guest => LoginScreen(authController: authController),
-          UserRole.user => const UserHomeScreen(),
+          UserRole.user => UserHomeScreen(authController: authController),
           UserRole.admin => const AdminDashboardScreen(),
         };
       },

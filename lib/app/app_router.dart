@@ -46,7 +46,7 @@ abstract final class AppRouter {
           builder: (_) {
             if (authController.role == UserRole.user ||
                 authController.role == UserRole.admin) {
-              return const UserHomeScreen();
+              return UserHomeScreen(authController: authController);
             }
 
             return LoginScreen(authController: authController);

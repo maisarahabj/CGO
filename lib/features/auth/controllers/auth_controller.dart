@@ -3,10 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../profile/models/profile_model.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 
-/// Holds the authentication and role state used by CampusGO screens.
+/// Stores the authenticated user's session, profile, and role.
 class AuthController extends ChangeNotifier {
   AuthController({AuthService? authService})
     : _authService = authService ?? AuthService() {
@@ -14,6 +15,7 @@ class AuthController extends ChangeNotifier {
       _handleAuthStateChange,
       onError: _handleAuthStreamError,
     );
+
     unawaited(initialize());
   }
 
@@ -21,21 +23,33 @@ class AuthController extends ChangeNotifier {
   StreamSubscription<AuthState>? _authSubscription;
 
   UserRole _role = UserRole.guest;
+  ProfileModel? _profile;
   bool _isLoading = true;
   String? _errorMessage;
 
   UserRole get role => _role;
+
+  /// This is the getter that UserHomeScreen requires.
+  ProfileModel? get profile => _profile;
+
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  bool get hasSession => _authService.currentSession != null;
+
+  bool get hasSession {
+    return _authService.currentSession != null;
+  }
 
   Future<void> initialize() async {
     _setLoading(true);
+    _errorMessage = null;
 
     try {
-      await _loadRoleFromCurrentSession();
-    } catch (_) {
-      _role = UserRole.guest;
+      await _loadProfileFromCurrentSession();
+    } catch (error, stackTrace) {
+      debugPrint('Account initialization failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      _clearSessionState();
       _errorMessage = 'We could not load your account. Please sign in again.';
     } finally {
       _setLoading(false);
@@ -49,31 +63,31 @@ class AuthController extends ChangeNotifier {
     try {
       await _authService.signIn(email: email, password: password);
 
-      await _loadRoleFromCurrentSession();
+      await _loadProfileFromCurrentSession();
 
       return _role != UserRole.guest;
     } on AuthException catch (error) {
-      _role = UserRole.guest;
-      _errorMessage = 'Authentication failed: ${error.message}';
+      _clearSessionState();
+      _errorMessage = error.message;
       return false;
     } on PostgrestException catch (error) {
-      _role = UserRole.guest;
+      _clearSessionState();
 
       debugPrint('Profile query failed: ${error.message}');
-      debugPrint('PostgREST code: ${error.code}');
-      debugPrint('Details: ${error.details}');
 
       _errorMessage =
           'Your login was accepted, but your CampusGO profile could not be loaded.';
+
       return false;
     } catch (error, stackTrace) {
-      _role = UserRole.guest;
+      _clearSessionState();
 
-      debugPrint('Sign-in error: $error');
+      debugPrint('Sign-in failed: $error');
       debugPrintStack(stackTrace: stackTrace);
 
       _errorMessage =
           'Your login was accepted, but the account role is missing or invalid.';
+
       return false;
     } finally {
       _setLoading(false);
@@ -90,8 +104,12 @@ class AuthController extends ChangeNotifier {
     } on AuthException catch (error) {
       _errorMessage = error.message;
       return false;
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('Password reset failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
       _errorMessage = 'We could not send the reset email. Please try again.';
+
       return false;
     } finally {
       _setLoading(false);
@@ -104,9 +122,14 @@ class AuthController extends ChangeNotifier {
 
     try {
       await _authService.signOut();
-      _role = UserRole.guest;
+      _clearSessionState();
     } on AuthException catch (error) {
       _errorMessage = error.message;
+    } catch (error, stackTrace) {
+      debugPrint('Sign-out failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      _errorMessage = 'We could not sign you out. Please try again.';
     } finally {
       _setLoading(false);
     }
@@ -114,44 +137,69 @@ class AuthController extends ChangeNotifier {
 
   Future<void> _handleAuthStateChange(AuthState state) async {
     if (state.session == null) {
-      _role = UserRole.guest;
+      _clearSessionState();
       _errorMessage = null;
       _setLoading(false);
       return;
     }
 
     try {
-      await _loadRoleFromCurrentSession();
+      await _loadProfileFromCurrentSession();
       notifyListeners();
-    } catch (_) {
-      _role = UserRole.guest;
+    } catch (error, stackTrace) {
+      debugPrint('Profile reload failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      _clearSessionState();
       _errorMessage =
-          'Your account role could not be loaded from the profile table.';
+          'Your account profile could not be loaded from the profile table.';
+
       notifyListeners();
     }
   }
 
   void _handleAuthStreamError(Object error, StackTrace stackTrace) {
+    debugPrint('Authentication stream failed: $error');
+    debugPrintStack(stackTrace: stackTrace);
+
     _errorMessage =
         'The authentication connection was interrupted. Please try again.';
+
     _setLoading(false);
   }
 
-  Future<void> _loadRoleFromCurrentSession() async {
+  Future<void> _loadProfileFromCurrentSession() async {
     if (_authService.currentSession == null) {
-      _role = UserRole.guest;
+      _clearSessionState();
       return;
     }
 
-    final profileRole = (await _authService.loadCurrentProfileRole())
-        ?.trim()
-        .toLowerCase();
+    final loadedProfile = await _authService.loadCurrentProfile();
 
-    _role = switch (profileRole) {
-      'admin' => UserRole.admin,
-      'student' || 'lecturer' || 'user' => UserRole.user,
-      _ => throw StateError('Unknown or missing CampusGO profile role.'),
-    };
+    if (loadedProfile == null) {
+      throw StateError(
+        'No public.profile row exists for this authenticated user.',
+      );
+    }
+
+    final normalizedRole = loadedProfile.role.trim().toLowerCase();
+
+    if (normalizedRole == 'admin') {
+      _role = UserRole.admin;
+    } else if (normalizedRole == 'student' ||
+        normalizedRole == 'lecturer' ||
+        normalizedRole == 'user') {
+      _role = UserRole.user;
+    } else {
+      throw StateError('Unknown CampusGO profile role: $normalizedRole');
+    }
+
+    _profile = loadedProfile;
+  }
+
+  void _clearSessionState() {
+    _profile = null;
+    _role = UserRole.guest;
   }
 
   void _setLoading(bool value) {

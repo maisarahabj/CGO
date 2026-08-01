@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
-/// Public starting screen for someone without a Supabase login session.
+import 'home_screen.dart';
+
 class GuestHomeScreen extends StatelessWidget {
   const GuestHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('CampusGO')),
-      body: const Center(child: Text('Guest home screen')),
+    return HomeScreen(
+      accessMode: HomeAccessMode.guest,
+      onSessionAction: () async {
+        await Navigator.of(context).maybePop();
+      },
     );
   }
 }

@@ -1,10 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/database_tables.dart';
+import '../../profile/models/profile_model.dart';
 
 /// The only authentication class that communicates directly with Supabase.
-///
-/// Screens call [AuthController], and [AuthController] calls this service.
 class AuthService {
   SupabaseClient get _client => Supabase.instance.client;
 
@@ -27,21 +26,25 @@ class AuthService {
     await _client.auth.resetPasswordForEmail(email.trim());
   }
 
-  /// Loads the role stored in `public.profile` for the current Auth user.
+  /// Loads the signed-in person's complete sidebar profile.
   ///
-  /// CampusGO stores `student`, `lecturer`, or `admin` in this column.
-  Future<String?> loadCurrentProfileRole() async {
+  /// The drawer uses `full_name`, `unimy_id`, and `prof_pic`. The same query
+  /// also returns `role`, so authentication and the UI use one consistent row.
+  Future<ProfileModel?> loadCurrentProfile() async {
     final user = _client.auth.currentUser;
-    if (user == null) {
-      return null;
-    }
+    if (user == null) return null;
 
-    final profile = await _client
+    final data = await _client
         .from(DatabaseTables.profile)
-        .select('role')
+        .select('id, full_name, unimy_id, dob, prof_pic, role, created_at')
         .eq('id', user.id)
         .maybeSingle();
 
-    return profile?['role'] as String?;
+    return data == null ? null : ProfileModel.fromMap(data);
+  }
+
+  /// Kept for compatibility with any older code that still requests only role.
+  Future<String?> loadCurrentProfileRole() async {
+    return (await loadCurrentProfile())?.role;
   }
 }

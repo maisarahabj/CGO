@@ -10,5 +10,5 @@ abstract final class DatabaseTables {
   static const String visitHistories = 'visit_histories';
   static const String issueReports = 'issue_reports';
   static const String faq = 'faq';
+  static const String qrCodes = 'qr_codes';
 }
-

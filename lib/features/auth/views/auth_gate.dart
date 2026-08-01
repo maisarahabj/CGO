@@ -8,10 +8,7 @@ import 'login_screen.dart';
 
 /// Chooses the correct entry screen from the current Supabase session and role.
 class AuthGate extends StatelessWidget {
-  const AuthGate({
-    required this.authController,
-    super.key,
-  });
+  const AuthGate({required this.authController, super.key});
 
   final AuthController authController;
 
@@ -39,10 +36,6 @@ class _AuthLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

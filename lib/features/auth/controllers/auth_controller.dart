@@ -48,16 +48,32 @@ class AuthController extends ChangeNotifier {
 
     try {
       await _authService.signIn(email: email, password: password);
+
       await _loadRoleFromCurrentSession();
+
       return _role != UserRole.guest;
     } on AuthException catch (error) {
       _role = UserRole.guest;
-      _errorMessage = error.message;
+      _errorMessage = 'Authentication failed: ${error.message}';
       return false;
-    } catch (_) {
+    } on PostgrestException catch (error) {
       _role = UserRole.guest;
+
+      debugPrint('Profile query failed: ${error.message}');
+      debugPrint('PostgREST code: ${error.code}');
+      debugPrint('Details: ${error.details}');
+
       _errorMessage =
-          'Something went wrong while signing in. Please try again.';
+          'Your login was accepted, but your CampusGO profile could not be loaded.';
+      return false;
+    } catch (error, stackTrace) {
+      _role = UserRole.guest;
+
+      debugPrint('Sign-in error: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      _errorMessage =
+          'Your login was accepted, but the account role is missing or invalid.';
       return false;
     } finally {
       _setLoading(false);

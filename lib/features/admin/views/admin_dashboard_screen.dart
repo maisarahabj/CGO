@@ -8,9 +8,7 @@ class AdminDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('CampusGO Admin')),
-      body: const Center(
-        child: Text('Admin dashboard screen'),
-      ),
+      body: const Center(child: Text('Admin dashboard screen')),
     );
   }
 }

@@ -8,9 +8,7 @@ class GuestHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('CampusGO')),
-      body: const Center(
-        child: Text('Guest home screen'),
-      ),
+      body: const Center(child: Text('Guest home screen')),
     );
   }
 }

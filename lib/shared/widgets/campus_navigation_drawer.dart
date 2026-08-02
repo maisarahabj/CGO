@@ -16,6 +16,7 @@ class CampusNavigationDrawer extends StatelessWidget {
     required this.onAccessibilityChanged,
     required this.onHelpPressed,
     required this.onSessionAction,
+    this.onProfilePressed,
     this.profile,
     super.key,
   });
@@ -29,6 +30,7 @@ class CampusNavigationDrawer extends StatelessWidget {
   final ValueChanged<bool> onAccessibilityChanged;
   final VoidCallback onHelpPressed;
   final Future<void> Function() onSessionAction;
+  final VoidCallback? onProfilePressed;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +51,7 @@ class CampusNavigationDrawer extends StatelessWidget {
             _ProfileHeader(
               isRegisteredUser: isRegisteredUser,
               profile: profile,
+              onPressed: onProfilePressed,
             ),
             const _InsetDivider(horizontalMargin: 47),
             const _CampusGoBrand(),
@@ -139,10 +142,15 @@ class _CloseDrawerButton extends StatelessWidget {
 }
 
 class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({required this.isRegisteredUser, required this.profile});
+  const _ProfileHeader({
+    required this.isRegisteredUser,
+    required this.profile,
+    required this.onPressed,
+  });
 
   final bool isRegisteredUser;
   final ProfileModel? profile;
+  final VoidCallback? onPressed;
 
   static String _textOrFallback(String? value, String fallback) {
     final cleanedValue = value?.trim();
@@ -166,7 +174,7 @@ class _ProfileHeader extends StatelessWidget {
 
     final String initials = isRegisteredUser ? profile?.initials ?? 'U' : 'G';
 
-    return Padding(
+    final content = Padding(
       padding: const EdgeInsets.fromLTRB(36, 0, 12, 20),
       child: Row(
         children: [
@@ -210,6 +218,19 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+
+    if (onPressed == null) {
+      return content;
+    }
+
+    return Semantics(
+      button: true,
+      label: 'Edit profile information',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(onTap: onPressed, child: content),
       ),
     );
   }

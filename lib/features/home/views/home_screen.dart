@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../app/app_routes.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../../profile/models/profile_model.dart';
@@ -52,6 +53,9 @@ class _HomeScreenState extends State<HomeScreen> {
   static const List<String> _floors = ['L9', 'L8', 'L6', 'L3', 'L1', 'G'];
   static const double _navigationPanelBottomOffset = -10;
 
+  final TextEditingController _currentLocationController =
+      TextEditingController();
+  final FocusNode _currentLocationFocusNode = FocusNode();
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _destinationFocusNode = FocusNode();
   String _selectedFloor = 'L9';
@@ -73,13 +77,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool get _showMapDismissLayer {
-    return _isNavigationPanelExpanded || _destinationFocusNode.hasFocus;
+    return _isNavigationPanelExpanded ||
+        _currentLocationFocusNode.hasFocus ||
+        _destinationFocusNode.hasFocus;
   }
 
   @override
   void initState() {
     super.initState();
-    _destinationFocusNode.addListener(_handleDestinationFocusChanged);
+    _currentLocationFocusNode.addListener(_handleLocationFocusChanged);
+    _destinationFocusNode.addListener(_handleLocationFocusChanged);
   }
 
   @override
@@ -121,10 +128,14 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _handleDestinationFocusChanged() {
+  void _handleLocationFocusChanged() {
     if (mounted) {
       setState(() {});
     }
+  }
+
+  void _handleCurrentLocationPressed() {
+    _currentLocationFocusNode.requestFocus();
   }
 
   void _dismissOngoingClass() {
@@ -143,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    _currentLocationFocusNode.unfocus();
     setState(() {
       _isNavigationPanelExpanded = true;
     });
@@ -152,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Guests go directly to destination typing, so their panel does not expand.
     if (!_isRegisteredUser || _isNavigationPanelExpanded) return;
 
+    _currentLocationFocusNode.unfocus();
     _destinationFocusNode.unfocus();
     setState(() {
       _isNavigationPanelExpanded = true;
@@ -159,6 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _collapseNavigationPanel() {
+    _currentLocationFocusNode.unfocus();
     _destinationFocusNode.unfocus();
 
     if (!_isNavigationPanelExpanded || !mounted) return;
@@ -175,8 +189,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _currentLocationFocusNode
+      ..removeListener(_handleLocationFocusChanged)
+      ..dispose();
+    _currentLocationController.dispose();
     _destinationFocusNode
-      ..removeListener(_handleDestinationFocusChanged)
+      ..removeListener(_handleLocationFocusChanged)
       ..dispose();
     _destinationController.dispose();
     super.dispose();
@@ -200,26 +218,33 @@ class _HomeScreenState extends State<HomeScreen> {
         drawer: CampusNavigationDrawer(
           isRegisteredUser: _isRegisteredUser,
           profile: widget.profile,
+          onProfilePressed: _isRegisteredUser
+              ? () {
+                  _closeDrawerThen(() {
+                    Navigator.of(context).pushNamed(AppRoutes.editProfile);
+                  });
+                }
+              : null,
           isAccessibilityEnabled: _isAccessibilityEnabled,
           onNotificationPressed: () {
             _closeDrawerThen(() {
-              _showMessage('Notification screen will be connected next.');
+              Navigator.of(context).pushNamed(AppRoutes.notifications);
             });
           },
           onTimetablePressed: () {
             _closeDrawerThen(() {
-              _showMessage('Timetable screen will be connected next.');
+              Navigator.of(context).pushNamed(AppRoutes.timetable);
             });
           },
           onSettingsPressed: () {
             _closeDrawerThen(() {
-              _showMessage('Settings screen will be connected next.');
+              Navigator.of(context).pushNamed(AppRoutes.settings);
             });
           },
           onAccessibilityChanged: _setAccessibility,
           onHelpPressed: () {
             _closeDrawerThen(() {
-              _showMessage('Help & Feedback will be connected next.');
+              Navigator.of(context).pushNamed(AppRoutes.support);
             });
           },
           onSessionAction: widget.onSessionAction,
@@ -327,16 +352,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         bottomSafeArea: bottomSafeArea,
                         ongoingClass: widget.ongoingClass,
                         nextClasses: widget.nextClasses,
+                        currentLocationController: _currentLocationController,
+                        currentLocationFocusNode: _currentLocationFocusNode,
                         destinationController: _destinationController,
                         destinationFocusNode: _destinationFocusNode,
                         isDestinationEditable:
                             !_isRegisteredUser || _isNavigationPanelExpanded,
-                        onCurrentLocationPressed: () {
-                          _collapseNavigationPanel();
-                          _showMessage(
-                            'Choose or detect the current location here.',
-                          );
-                        },
+                        onCurrentLocationPressed: _handleCurrentLocationPressed,
                         onQrPressed: () {
                           _collapseNavigationPanel();
                           _showMessage('QR checkpoint scanner opens here.');
@@ -348,9 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onNavigatePressed: _navigateToClass,
                         onViewAllPressed: () {
                           _collapseNavigationPanel();
-                          _showMessage(
-                            'The full timetable screen will open here.',
-                          );
+                          Navigator.of(context).pushNamed(AppRoutes.timetable);
                         },
                       ),
                     ),

@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 
 /// Temporary view used to verify that drawer navigation is connected.
-class TimetableScreen extends StatelessWidget {
-  const TimetableScreen({super.key});
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Timetable')),
+      appBar: AppBar(title: const Text('Settings')),
       body: const Center(
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
             'Remove this text later. This text shows that the linking works. '
-            'The Timetable page interface will go here. - Mai',
+            'The Settings page interface will go here. - Mai',
             textAlign: TextAlign.center,
           ),
         ),

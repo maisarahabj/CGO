@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/temporary_linked_screen.dart';
 
-class AdminManageTimetableScreen extends StatelessWidget {
-  const AdminManageTimetableScreen({super.key});
+class PrivacyLegalHelpScreen extends StatelessWidget {
+  const PrivacyLegalHelpScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const TemporaryLinkedScreen(
-      title: 'Rooms & Availability',
-      pageName: 'Rooms & Availability',
+      title: 'Privacy, Legal and Help',
+      pageName: 'Privacy, Legal and Help',
     );
   }
 }

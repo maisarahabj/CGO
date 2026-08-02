@@ -5,6 +5,8 @@ import '../../../core/constants/app_assets.dart';
 
 class HomeLocationFields extends StatelessWidget {
   const HomeLocationFields({
+    required this.currentLocationController,
+    required this.currentLocationFocusNode,
     required this.destinationController,
     required this.destinationFocusNode,
     required this.isDestinationEditable,
@@ -16,6 +18,8 @@ class HomeLocationFields extends StatelessWidget {
     super.key,
   });
 
+  final TextEditingController currentLocationController;
+  final FocusNode currentLocationFocusNode;
   final TextEditingController destinationController;
   final FocusNode destinationFocusNode;
   final bool isDestinationEditable;
@@ -30,8 +34,9 @@ class HomeLocationFields extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _LocationField(
-          label: 'Current Location',
+        _CurrentLocationField(
+          controller: currentLocationController,
+          focusNode: currentLocationFocusNode,
           leadingAsset: AppAssets.currentLocation,
           onPressed: onCurrentLocationPressed,
           trailing: IconButton(
@@ -170,15 +175,17 @@ class _DestinationField extends StatelessWidget {
   }
 }
 
-class _LocationField extends StatelessWidget {
-  const _LocationField({
-    required this.label,
+class _CurrentLocationField extends StatelessWidget {
+  const _CurrentLocationField({
+    required this.controller,
+    required this.focusNode,
     required this.leadingAsset,
     required this.onPressed,
     this.trailing,
   });
 
-  final String label;
+  final TextEditingController controller;
+  final FocusNode focusNode;
   final String leadingAsset;
   final VoidCallback onPressed;
   final Widget? trailing;
@@ -190,9 +197,9 @@ class _LocationField extends StatelessWidget {
       elevation: 4,
       shadowColor: const Color(0x33000000),
       borderRadius: BorderRadius.circular(28),
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(28),
         child: Container(
           height: 55,
           padding: const EdgeInsets.fromLTRB(20, 0, 17, 0),
@@ -216,17 +223,32 @@ class _LocationField extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  label,
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.search,
+                  textCapitalization: TextCapitalization.words,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  cursorColor: const Color(0xFF2A77B4),
                   style: const TextStyle(
                     fontFamily: 'Roboto',
                     fontSize: 24,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFFB8B8B8),
+                    color: Color(0xFF1E1E1E),
                     height: 1,
                   ),
+                  decoration: const InputDecoration.collapsed(
+                    hintText: 'Current Location',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFB8B8B8),
+                      height: 1,
+                    ),
+                  ),
+                  onSubmitted: (_) => focusNode.unfocus(),
                 ),
               ),
               if (trailing != null) ...[const SizedBox(width: 6), trailing!],

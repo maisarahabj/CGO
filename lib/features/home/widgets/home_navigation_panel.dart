@@ -11,6 +11,8 @@ class HomeNavigationPanel extends StatelessWidget {
     required this.isRegisteredUser,
     required this.bottomSafeArea,
     required this.nextClasses,
+    required this.currentLocationController,
+    required this.currentLocationFocusNode,
     required this.destinationController,
     required this.destinationFocusNode,
     required this.isDestinationEditable,
@@ -31,6 +33,8 @@ class HomeNavigationPanel extends StatelessWidget {
   final double bottomSafeArea;
   final OngoingClassModel? ongoingClass;
   final List<OngoingClassModel> nextClasses;
+  final TextEditingController currentLocationController;
+  final FocusNode currentLocationFocusNode;
   final TextEditingController destinationController;
   final FocusNode destinationFocusNode;
   final bool isDestinationEditable;
@@ -48,43 +52,63 @@ class HomeNavigationPanel extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onTap: onBackgroundPressed,
-      child: Material(
-        color: Colors.white,
-        elevation: 8,
-        shadowColor: const Color(0x30000000),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(57)),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: HomeLocationFields(
-                destinationController: destinationController,
-                destinationFocusNode: destinationFocusNode,
-                isDestinationEditable: isDestinationEditable,
-                onCurrentLocationPressed: onCurrentLocationPressed,
-                onQrPressed: onQrPressed,
-                onDestinationPressed: onDestinationPressed,
-                onDestinationSwipeUp: onDestinationSwipeUp,
-                onDestinationSwipeDown: onDestinationSwipeDown,
+      child: Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          // This is the white background only.
+          Positioned(
+            top: 8,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Material(
+              color: Colors.white,
+              elevation: 8,
+              shadowColor: const Color(0x30000000),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(57),
               ),
+              clipBehavior: Clip.antiAlias,
             ),
-            if (isExpanded && isRegisteredUser) ...[
-              const SizedBox(height: 12),
-              Expanded(
-                child: _ScheduleContent(
-                  ongoingClass: ongoingClass,
-                  nextClasses: nextClasses,
-                  bottomSafeArea: bottomSafeArea,
-                  onNavigatePressed: onNavigatePressed,
-                  onViewAllPressed: onViewAllPressed,
+          ),
+
+          // These are the contents above the white background.
+          // Their position does not change.
+          Column(
+            children: [
+              const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: HomeLocationFields(
+                  currentLocationController: currentLocationController,
+                  currentLocationFocusNode: currentLocationFocusNode,
+                  destinationController: destinationController,
+                  destinationFocusNode: destinationFocusNode,
+                  isDestinationEditable: isDestinationEditable,
+                  onCurrentLocationPressed: onCurrentLocationPressed,
+                  onQrPressed: onQrPressed,
+                  onDestinationPressed: onDestinationPressed,
+                  onDestinationSwipeUp: onDestinationSwipeUp,
+                  onDestinationSwipeDown: onDestinationSwipeDown,
                 ),
               ),
-            ] else
-              SizedBox(height: bottomSafeArea + 10),
-          ],
-        ),
+              if (isExpanded && isRegisteredUser) ...[
+                const SizedBox(height: 12),
+                Expanded(
+                  child: _ScheduleContent(
+                    ongoingClass: ongoingClass,
+                    nextClasses: nextClasses,
+                    bottomSafeArea: bottomSafeArea,
+                    onNavigatePressed: onNavigatePressed,
+                    onViewAllPressed: onViewAllPressed,
+                  ),
+                ),
+              ] else
+                SizedBox(height: bottomSafeArea + 10),
+            ],
+          ),
+        ],
       ),
     );
   }

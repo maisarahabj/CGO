@@ -16,6 +16,9 @@ abstract final class AppAssets {
   static const String closeButton = 'assets/shared/icons/close_button.svg';
   static const String closeBorderButton =
       'assets/shared/icons/close_border_button.svg';
+  static const String backButton = 'assets/shared/icons/back_button.svg';
+  static const String moreRightArrow =
+      'assets/shared/icons/more_right_arrow.svg';
 
   // Drawer icons.
   static const String drawerNotification =
@@ -26,6 +29,9 @@ abstract final class AppAssets {
       'assets/shared/icons/drawer/sidebar_settings.svg';
   static const String drawerAccess =
       'assets/shared/icons/drawer/sidebar_access.svg';
+  static const String drawerDashboard =
+      'assets/shared/icons/drawer/sidebar_dashboard.svg';
+  static const String drawerMap = 'assets/shared/icons/drawer/sidebar_map.svg';
 
   // Home/navigation icons.
   static const String scanQr = 'assets/features/navigation/icons/scan_qr.svg';
@@ -41,6 +47,8 @@ abstract final class AppAssets {
   // Profile and support.
   static const String profileCamera =
       'assets/features/profile/icons/camera.svg';
+  static const String editProfile =
+      'assets/features/profile/icons/edit_profile.svg';
   static const String helpAndFeedback =
       'assets/features/settings/icons/settings_faq.svg';
 

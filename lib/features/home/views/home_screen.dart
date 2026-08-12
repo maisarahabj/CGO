@@ -10,7 +10,7 @@ import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../../profile/models/profile_model.dart';
 import '../models/ongoing_class_model.dart';
 import '../widgets/home_floor_selector.dart';
-import '../widgets/home_map_placeholder.dart';
+import '../widgets/home_spline_map.dart';
 import '../widgets/home_navigation_panel.dart';
 import '../widgets/home_side_controls.dart';
 import '../widgets/ongoing_class_card.dart';
@@ -58,7 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final FocusNode _currentLocationFocusNode = FocusNode();
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _destinationFocusNode = FocusNode();
-  String _selectedFloor = 'L9';
+  String _selectedFloor = 'L8';
   bool _isAccessibilityEnabled = false;
   bool _isNavigationPanelExpanded = false;
   String? _dismissedTimetableId;
@@ -274,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Positioned.fill(
                     child:
                         widget.mapContent ??
-                        HomeMapPlaceholder(selectedFloor: _selectedFloor),
+                        HomeSplineMap(selectedFloor: _selectedFloor),
                   ),
                   if (_showMapDismissLayer)
                     Positioned.fill(

@@ -59,7 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _destinationFocusNode = FocusNode();
   String _selectedFloor = 'L8';
-  bool _isAccessibilityEnabled = false;
+  int _floorSelectionRequest = 0;
+  bool _isAccessibilityEnabled = true;
   bool _isNavigationPanelExpanded = false;
   String? _dismissedTimetableId;
 
@@ -125,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _selectFloor(String floor) {
     setState(() {
       _selectedFloor = floor;
+      _floorSelectionRequest++;
     });
   }
 
@@ -274,7 +276,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   Positioned.fill(
                     child:
                         widget.mapContent ??
-                        HomeSplineMap(selectedFloor: _selectedFloor),
+                        HomeSplineMap(
+                          selectedFloor: _selectedFloor,
+                          selectionRequest: _floorSelectionRequest,
+                        ),
                   ),
                   if (_showMapDismissLayer)
                     Positioned.fill(

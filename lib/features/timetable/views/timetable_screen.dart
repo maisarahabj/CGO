@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../controllers/schedule_controller.dart';
+import '../../../app/app_routes.dart';
+import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../controllers/timetable_controller.dart';
 import '../models/timetable_model.dart';
 import '../widgets/timetable_entry_card.dart';
@@ -19,8 +22,13 @@ class TimetableScreen extends StatefulWidget {
 }
 
 class _TimetableScreenState extends State<TimetableScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   late final TimetableController _controller;
+  late final ScheduleController _scheduleController;
   late final TextEditingController _searchController;
+
+  bool _isAccessibilityEnabled = false;
 
   static const Color _blue = Color(0xFF176F9E);
   static const Color _green = Color(0xFF78C66A);
@@ -31,9 +39,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
     super.initState();
 
     _controller = TimetableController();
+    _scheduleController = ScheduleController();
     _searchController = TextEditingController();
 
     _load();
+
+    if (!widget.guestMode) {
+      _scheduleController.loadSchedule();
+    }
   }
 
   Future<void> _load() async {
@@ -55,14 +68,98 @@ class _TimetableScreenState extends State<TimetableScreen> {
   @override
   void dispose() {
     _controller.dispose();
+    _scheduleController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _closeDrawerThen(VoidCallback action) {
+    Navigator.of(context).pop();
+    action();
+  }
+
+  Future<void> _handleSessionAction() async {
+    try {
+      if (!widget.guestMode) {
+        await Supabase.instance.client.auth.signOut();
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to complete the session action. '
+            'Please try again.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildDrawer() {
+    return CampusNavigationDrawer(
+      isRegisteredUser: !widget.guestMode,
+
+      // The real ProfileModel is currently supplied to HomeScreen
+      // through the shared auth/router layer. We avoid modifying that
+      // shared code here, so the drawer uses its built-in fallback.
+      profile: null,
+
+      onProfilePressed: widget.guestMode
+          ? null
+          : () {
+              _closeDrawerThen(() {
+                Navigator.of(context).pushNamed(AppRoutes.editProfile);
+              });
+            },
+
+      isAccessibilityEnabled: _isAccessibilityEnabled,
+
+      onNotificationPressed: () {
+        _closeDrawerThen(() {
+          Navigator.of(context).pushNamed(AppRoutes.notifications);
+        });
+      },
+
+      // Timetable is already open, so simply close the drawer.
+      onTimetablePressed: () {
+        Navigator.of(context).pop();
+      },
+
+      onSettingsPressed: () {
+        _closeDrawerThen(() {
+          Navigator.of(context).pushNamed(AppRoutes.settings);
+        });
+      },
+
+      onAccessibilityChanged: (value) {
+        setState(() {
+          _isAccessibilityEnabled = value;
+        });
+      },
+
+      onHelpPressed: () {
+        _closeDrawerThen(() {
+          Navigator.of(context).pushNamed(AppRoutes.support);
+        });
+      },
+
+      onSessionAction: _handleSessionAction,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Colors.white,
+      drawerScrimColor: const Color(0x3D000000),
+      drawer: _buildDrawer(),
       appBar: _buildAppBar(),
       body: SafeArea(
         top: false,
@@ -80,12 +177,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
             return Column(
               children: [
                 _buildBanner(),
-
-                // SEARCH MUST ALWAYS BE VISIBLE HERE.
                 _buildRoomSearch(),
-
                 _buildDaySelector(),
-
                 Expanded(child: _buildRoomSchedule()),
               ],
             );
@@ -103,12 +196,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
       centerTitle: true,
       surfaceTintColor: Colors.white,
       leading: IconButton(
+        tooltip: 'Open menu',
         onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Sidebar integration remains unchanged.'),
-            ),
-          );
+          FocusScope.of(context).unfocus();
+          _scaffoldKey.currentState?.openDrawer();
         },
         icon: const Icon(Icons.menu, color: Colors.black87, size: 27),
       ),
@@ -133,7 +224,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ),
       actions: [
         IconButton(
-          onPressed: () => Navigator.maybePop(context),
+          tooltip: 'Close',
+          onPressed: () {
+            Navigator.of(context).maybePop();
+          },
           icon: const Icon(Icons.close, color: Colors.black87, size: 27),
         ),
         const SizedBox(width: 4),
@@ -245,7 +339,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
             height: 55,
             child: TextField(
               controller: _searchController,
-              onChanged: _controller.setSearchQuery,
+              onChanged: (value) {
+                _controller.setSearchQuery(value);
+              },
               style: const TextStyle(fontFamily: 'Raleway', fontSize: 16),
               decoration: InputDecoration(
                 hintText:
@@ -326,11 +422,43 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       _controller.selectSearchResult(entry);
 
                       _searchController.clear();
+                      _controller.setSearchQuery('');
 
                       FocusScope.of(context).unfocus();
                     },
                   );
                 },
+              ),
+            ),
+          if (_controller.searchQuery.isNotEmpty && results.isEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFD8E2E9)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.search_off_outlined,
+                    color: Color(0xFF68727D),
+                    size: 20,
+                  ),
+                  SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      'No matching rooms or classes found.',
+                      style: TextStyle(
+                        fontFamily: 'Roboto',
+                        fontSize: 13,
+                        color: Color(0xFF68727D),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
         ],
@@ -522,7 +650,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     entry: entry,
                     isOngoing: _controller.isEntryOngoing(entry),
                     showLecturer: !widget.guestMode,
-                    onTap: () => _showClassDetails(entry),
+                    onTap: () {
+                      _showClassDetails(entry);
+                    },
                   ),
           ),
         ],
@@ -591,34 +721,138 @@ class _TimetableScreenState extends State<TimetableScreen> {
     showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) {
+      isScrollControlled: true,
+      builder: (sheetContext) {
         return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 6, 24, 30),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.subjectName ?? 'Class Details',
-                  style: const TextStyle(
-                    fontFamily: 'Raleway',
-                    fontSize: 21,
-                    fontWeight: FontWeight.w700,
-                    color: _blue,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 6, 24, 30),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.subjectName ?? 'Class Details',
+                    style: const TextStyle(
+                      fontFamily: 'Raleway',
+                      fontSize: 21,
+                      fontWeight: FontWeight.w700,
+                      color: _blue,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 15),
-                _detail('Code', entry.subjectCode),
-                _detail('Room', entry.roomName),
-                _detail('Day', entry.day),
-                _detail(
-                  'Time',
-                  '${_formatTime(entry.startTime)}'
-                      ' - ${_formatTime(entry.endTime)}',
-                ),
-                if (!widget.guestMode) _detail('Lecturer', entry.lecturer),
-              ],
+                  const SizedBox(height: 15),
+                  _detail('Code', entry.subjectCode),
+                  _detail('Room', entry.roomName),
+                  _detail('Day', entry.day),
+                  _detail(
+                    'Time',
+                    '${_formatTime(entry.startTime)}'
+                        ' - '
+                        '${_formatTime(entry.endTime)}',
+                  ),
+                  if (!widget.guestMode) _detail('Lecturer', entry.lecturer),
+                  if (!widget.guestMode) ...[
+                    const SizedBox(height: 14),
+                    ListenableBuilder(
+                      listenable: _scheduleController,
+                      builder: (buttonContext, _) {
+                        final saved = _scheduleController.isSaved(
+                          entry.timetableId,
+                        );
+
+                        final busy = _scheduleController.isBusy(
+                          entry.timetableId,
+                        );
+
+                        if (_scheduleController.isLoading &&
+                            _scheduleController.entries.isEmpty) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(12),
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                        }
+
+                        return SizedBox(
+                          width: double.infinity,
+                          child: saved
+                              ? OutlinedButton.icon(
+                                  onPressed: busy
+                                      ? null
+                                      : () async {
+                                          final removed =
+                                              await _scheduleController
+                                                  .removeEntry(
+                                                    entry.timetableId,
+                                                  );
+
+                                          if (!buttonContext.mounted) {
+                                            return;
+                                          }
+
+                                          ScaffoldMessenger.of(buttonContext)
+                                            ..hideCurrentSnackBar()
+                                            ..showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  removed
+                                                      ? 'Removed from My Schedule.'
+                                                      : 'Unable to remove this class.',
+                                                ),
+                                              ),
+                                            );
+                                        },
+                                  icon: const Icon(
+                                    Icons.bookmark_remove_outlined,
+                                  ),
+                                  label: const Text('Remove from My Schedule'),
+                                )
+                              : FilledButton.icon(
+                                  onPressed: busy
+                                      ? null
+                                      : () async {
+                                          final result =
+                                              await _scheduleController
+                                                  .saveEntry(entry.timetableId);
+
+                                          if (!buttonContext.mounted) {
+                                            return;
+                                          }
+
+                                          final message = switch (result) {
+                                            SaveScheduleResult.added =>
+                                              'Added to My Schedule.',
+                                            SaveScheduleResult.alreadySaved =>
+                                              'This class is already in My Schedule.',
+                                            SaveScheduleResult.failed =>
+                                              'Unable to add this class.',
+                                          };
+
+                                          ScaffoldMessenger.of(buttonContext)
+                                            ..hideCurrentSnackBar()
+                                            ..showSnackBar(
+                                              SnackBar(content: Text(message)),
+                                            );
+                                        },
+                                  icon: busy
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Icons.bookmark_add_outlined),
+                                  label: const Text('Add to My Schedule'),
+                                ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         );
@@ -656,30 +890,37 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _navigateToRoom() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Navigation to ${_controller.selectedRoomName} '
-          'will connect to the navigation feature.',
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Navigation to '
+            '${_controller.selectedRoomName} '
+            'will connect to the navigation feature.',
+          ),
         ),
-      ),
-    );
+      );
   }
 
   void _bookRoom() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Room booking will connect to the booking feature.'),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Room booking will connect to the booking feature.'),
+        ),
+      );
   }
 
   void _openBookings() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Your Bookings will connect to the booking feature.'),
-      ),
-    );
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Your Bookings will connect to the booking feature.'),
+        ),
+      );
   }
 
   String _shortDay(String day) {

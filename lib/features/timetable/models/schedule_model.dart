@@ -1,6 +1,6 @@
 /// Represents one row from the `public.my_schedule` table.
 ///
-/// A schedule row connects a CampusGO user to one timetable record.
+/// A row links one authenticated CampusGO user to one public timetable entry.
 class ScheduleModel {
   const ScheduleModel({
     required this.scheduleId,
@@ -12,7 +12,6 @@ class ScheduleModel {
   final String? userId;
   final int? timetableId;
 
-  /// Converts one Supabase my_schedule row into a ScheduleModel.
   factory ScheduleModel.fromJson(Map<String, dynamic> json) {
     return ScheduleModel(
       scheduleId: json['schedule_id'] as String,
@@ -21,7 +20,6 @@ class ScheduleModel {
     );
   }
 
-  /// Converts this model back into Supabase column names.
   Map<String, dynamic> toJson() {
     return {
       'schedule_id': scheduleId,

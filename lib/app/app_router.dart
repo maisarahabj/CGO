@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../features/timetable/views/my_schedule_screen.dart';
 import '../features/admin/views/admin_dashboard_screen.dart';
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/auth/models/user_role.dart';
@@ -68,9 +68,17 @@ abstract final class AppRouter {
       case AppRoutes.timetable:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => authController.role == UserRole.user
-              ? const TimetableScreen()
-              : AuthGate(authController: authController),
+          builder: (_) {
+            if (authController.role == UserRole.user) {
+              return const MyScheduleScreen();
+            }
+
+            if (authController.role == UserRole.guest) {
+              return const TimetableScreen(guestMode: true);
+            }
+
+            return AuthGate(authController: authController);
+          },
         );
 
       case AppRoutes.settings:

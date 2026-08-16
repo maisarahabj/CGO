@@ -22,6 +22,44 @@ class EdgeModel {
   final bool isAccessible;
   final bool isActive;
 
+  /// The number Dijkstra should minimise.
+  ///
+  /// `traversal_cost` is preferred because it may include a walking penalty
+  /// for stairs or lifts. `distance_weight` is a safe fallback for older rows.
+  double? get routingCost {
+    final value = traversalCost ?? distanceWeight;
+
+    if (value == null || value.isNaN || value.isInfinite || value < 0) {
+      return null;
+    }
+
+    return value;
+  }
+
+  /// A row can participate in the graph only when its endpoints and cost are
+  /// present. Inactive rows are intentionally excluded.
+  bool get isUsableForRouting {
+    final source = sourceNodeId?.trim();
+    final target = targetNodeId?.trim();
+
+    return isActive &&
+        source != null &&
+        source.isNotEmpty &&
+        target != null &&
+        target.isNotEmpty &&
+        source != target &&
+        routingCost != null;
+  }
+
+  /// Returns the node on the opposite end of this edge.
+  /// Campus corridors are treated as two-way unless we later add a direction
+  /// column to the database.
+  String? otherNodeId(String nodeId) {
+    if (nodeId == sourceNodeId) return targetNodeId;
+    if (nodeId == targetNodeId) return sourceNodeId;
+    return null;
+  }
+
   /// Converts one Supabase edges row into an EdgeModel.
   factory EdgeModel.fromJson(Map<String, dynamic> json) {
     return EdgeModel(

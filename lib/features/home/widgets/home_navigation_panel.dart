@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../navigation/models/destination_model.dart';
 import '../models/ongoing_class_model.dart';
 import 'home_location_fields.dart';
 
@@ -16,9 +17,17 @@ class HomeNavigationPanel extends StatelessWidget {
     required this.destinationController,
     required this.destinationFocusNode,
     required this.isDestinationEditable,
+    required this.isSearchActive,
+    required this.searchSuggestions,
+    required this.onSearchSuggestionSelected,
+    required this.onCurrentLocationTextChanged,
+    required this.onDestinationTextChanged,
+    required this.canStartNavigation,
+    required this.isNavigationLoading,
     required this.onCurrentLocationPressed,
     required this.onQrPressed,
     required this.onDestinationPressed,
+    required this.onStartNavigationPressed,
     required this.onDestinationSwipeUp,
     required this.onDestinationSwipeDown,
     required this.onBackgroundPressed,
@@ -38,9 +47,17 @@ class HomeNavigationPanel extends StatelessWidget {
   final TextEditingController destinationController;
   final FocusNode destinationFocusNode;
   final bool isDestinationEditable;
+  final bool isSearchActive;
+  final List<DestinationModel> searchSuggestions;
+  final ValueChanged<DestinationModel> onSearchSuggestionSelected;
+  final ValueChanged<String> onCurrentLocationTextChanged;
+  final ValueChanged<String> onDestinationTextChanged;
+  final bool canStartNavigation;
+  final bool isNavigationLoading;
   final VoidCallback onCurrentLocationPressed;
   final VoidCallback onQrPressed;
   final VoidCallback onDestinationPressed;
+  final VoidCallback onStartNavigationPressed;
   final VoidCallback onDestinationSwipeUp;
   final VoidCallback onDestinationSwipeDown;
   final VoidCallback onBackgroundPressed;
@@ -86,29 +103,156 @@ class HomeNavigationPanel extends StatelessWidget {
                   destinationController: destinationController,
                   destinationFocusNode: destinationFocusNode,
                   isDestinationEditable: isDestinationEditable,
+                  onCurrentLocationTextChanged: onCurrentLocationTextChanged,
+                  onDestinationTextChanged: onDestinationTextChanged,
+                  canStartNavigation: canStartNavigation,
+                  isNavigationLoading: isNavigationLoading,
                   onCurrentLocationPressed: onCurrentLocationPressed,
                   onQrPressed: onQrPressed,
                   onDestinationPressed: onDestinationPressed,
+                  onStartNavigationPressed: onStartNavigationPressed,
                   onDestinationSwipeUp: onDestinationSwipeUp,
                   onDestinationSwipeDown: onDestinationSwipeDown,
                 ),
               ),
-              if (isExpanded && isRegisteredUser) ...[
-                const SizedBox(height: 12),
-                Expanded(
-                  child: _ScheduleContent(
-                    ongoingClass: ongoingClass,
-                    nextClasses: nextClasses,
-                    bottomSafeArea: bottomSafeArea,
-                    onNavigatePressed: onNavigatePressed,
-                    onViewAllPressed: onViewAllPressed,
+              if (isExpanded) ...[
+                if (isSearchActive) ...[
+                  const SizedBox(height: 8),
+                  _SearchSuggestions(
+                    suggestions: searchSuggestions,
+                    onSelected: onSearchSuggestionSelected,
                   ),
-                ),
+                ],
+                if (isRegisteredUser) ...[
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _ScheduleContent(
+                      ongoingClass: ongoingClass,
+                      nextClasses: nextClasses,
+                      bottomSafeArea: bottomSafeArea,
+                      onNavigatePressed: onNavigatePressed,
+                      onViewAllPressed: onViewAllPressed,
+                    ),
+                  ),
+                ] else ...[
+                  const Spacer(),
+                  SizedBox(height: bottomSafeArea + 10),
+                ],
               ] else
                 SizedBox(height: bottomSafeArea + 10),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SearchSuggestions extends StatelessWidget {
+  const _SearchSuggestions({
+    required this.suggestions,
+    required this.onSelected,
+  });
+
+  final List<DestinationModel> suggestions;
+  final ValueChanged<DestinationModel> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (suggestions.isEmpty) {
+      return const SizedBox(
+        height: 58,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'No matching CampusGO locations found.',
+              style: TextStyle(
+                fontFamily: 'Roboto',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF8A929E),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 232),
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shrinkWrap: true,
+          physics: const BouncingScrollPhysics(),
+          itemCount: suggestions.length,
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, indent: 34, color: Color(0xFFE3E7EA)),
+          itemBuilder: (context, index) {
+            final suggestion = suggestions[index];
+            final details = [
+              suggestion.floorId,
+              suggestion.nodeType,
+            ].whereType<String>().where((value) => value.trim().isNotEmpty);
+
+            return InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => onSelected(suggestion),
+              child: SizedBox(
+                height: 57,
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 28,
+                      child: Icon(
+                        Icons.place_outlined,
+                        size: 21,
+                        color: Color(0xFF2A77B4),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            suggestion.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Roboto',
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF26333C),
+                            ),
+                          ),
+                          if (details.isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              details.join(' · '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Roboto',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF7E8791),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

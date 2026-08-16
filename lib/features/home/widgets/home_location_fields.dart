@@ -10,9 +10,14 @@ class HomeLocationFields extends StatelessWidget {
     required this.destinationController,
     required this.destinationFocusNode,
     required this.isDestinationEditable,
+    required this.onCurrentLocationTextChanged,
+    required this.onDestinationTextChanged,
+    required this.canStartNavigation,
+    required this.isNavigationLoading,
     required this.onCurrentLocationPressed,
     required this.onQrPressed,
     required this.onDestinationPressed,
+    required this.onStartNavigationPressed,
     required this.onDestinationSwipeUp,
     required this.onDestinationSwipeDown,
     super.key,
@@ -23,9 +28,14 @@ class HomeLocationFields extends StatelessWidget {
   final TextEditingController destinationController;
   final FocusNode destinationFocusNode;
   final bool isDestinationEditable;
+  final ValueChanged<String> onCurrentLocationTextChanged;
+  final ValueChanged<String> onDestinationTextChanged;
+  final bool canStartNavigation;
+  final bool isNavigationLoading;
   final VoidCallback onCurrentLocationPressed;
   final VoidCallback onQrPressed;
   final VoidCallback onDestinationPressed;
+  final VoidCallback onStartNavigationPressed;
   final VoidCallback onDestinationSwipeUp;
   final VoidCallback onDestinationSwipeDown;
 
@@ -38,6 +48,7 @@ class HomeLocationFields extends StatelessWidget {
           controller: currentLocationController,
           focusNode: currentLocationFocusNode,
           leadingAsset: AppAssets.currentLocation,
+          onTextChanged: onCurrentLocationTextChanged,
           onPressed: onCurrentLocationPressed,
           trailing: IconButton(
             tooltip: 'Scan current-location QR checkpoint',
@@ -57,7 +68,11 @@ class HomeLocationFields extends StatelessWidget {
           controller: destinationController,
           focusNode: destinationFocusNode,
           isEditable: isDestinationEditable,
+          onTextChanged: onDestinationTextChanged,
+          canStartNavigation: canStartNavigation,
+          isNavigationLoading: isNavigationLoading,
           onPressed: onDestinationPressed,
+          onStartNavigationPressed: onStartNavigationPressed,
           onSwipeUp: onDestinationSwipeUp,
           onSwipeDown: onDestinationSwipeDown,
         ),
@@ -71,7 +86,11 @@ class _DestinationField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.isEditable,
+    required this.onTextChanged,
+    required this.canStartNavigation,
+    required this.isNavigationLoading,
     required this.onPressed,
+    required this.onStartNavigationPressed,
     required this.onSwipeUp,
     required this.onSwipeDown,
   });
@@ -79,7 +98,11 @@ class _DestinationField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isEditable;
+  final ValueChanged<String> onTextChanged;
+  final bool canStartNavigation;
+  final bool isNavigationLoading;
   final VoidCallback onPressed;
+  final VoidCallback onStartNavigationPressed;
   final VoidCallback onSwipeUp;
   final VoidCallback onSwipeDown;
 
@@ -153,20 +176,55 @@ class _DestinationField extends StatelessWidget {
                             height: 1,
                           ),
                         ),
+                        onChanged: onTextChanged,
+                        onSubmitted: (_) {
+                          if (canStartNavigation) {
+                            onStartNavigationPressed();
+                          }
+                        },
                       )
-                    : const Text(
-                        'Where to?',
+                    : Text(
+                        controller.text.isEmpty ? 'Where to?' : controller.text,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontFamily: 'Roboto',
                           fontSize: 24,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFFB8B8B8),
+                          color: controller.text.isEmpty
+                              ? const Color(0xFFB8B8B8)
+                              : const Color(0xFF1E1E1E),
                           height: 1,
                         ),
                       ),
               ),
+              if (isNavigationLoading)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Color(0xFF2A77B4),
+                    ),
+                  ),
+                )
+              else
+                IconButton(
+                  tooltip: 'Calculate route',
+                  onPressed: canStartNavigation
+                      ? onStartNavigationPressed
+                      : null,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 38,
+                    height: 40,
+                  ),
+                  icon: const Icon(Icons.directions, size: 27),
+                  color: const Color(0xFF2A77B4),
+                  disabledColor: const Color(0xFFCDD2D6),
+                ),
             ],
           ),
         ),
@@ -180,6 +238,7 @@ class _CurrentLocationField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.leadingAsset,
+    required this.onTextChanged,
     required this.onPressed,
     this.trailing,
   });
@@ -187,6 +246,7 @@ class _CurrentLocationField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final String leadingAsset;
+  final ValueChanged<String> onTextChanged;
   final VoidCallback onPressed;
   final Widget? trailing;
 
@@ -248,6 +308,7 @@ class _CurrentLocationField extends StatelessWidget {
                       height: 1,
                     ),
                   ),
+                  onChanged: onTextChanged,
                   onSubmitted: (_) => focusNode.unfocus(),
                 ),
               ),

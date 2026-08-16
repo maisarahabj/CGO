@@ -169,6 +169,129 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  /// Converts the selected node's Supabase floor reference into the exact
+  /// Spline floor-object name used by window.selectFloor().
+  ///
+  /// Most CampusGO rows already store values such as L6 and L9. The graph and
+  /// node-ID fallbacks keep camera focusing reliable if a database later uses
+  /// an internal floor ID such as FLOOR_6 instead.
+  String? _cameraFloorForLocation(DestinationModel location) {
+    final storedFloorId = location.floorId?.trim();
+
+    if (storedFloorId != null && storedFloorId.isNotEmpty) {
+      final normalizedFloorId = storedFloorId.toUpperCase();
+
+      if (_floors.contains(normalizedFloorId)) {
+        return normalizedFloorId;
+      }
+
+      final graph = _navigationController.graph;
+
+      if (graph != null) {
+        for (final floor in graph.floors) {
+          if (floor.floorId.trim().toUpperCase() != normalizedFloorId) {
+            continue;
+          }
+
+          final levelNumber = floor.levelNumber;
+
+          if (levelNumber != null) {
+            final cameraFloor = levelNumber == 0 ? 'G' : 'L$levelNumber';
+
+            if (_floors.contains(cameraFloor)) {
+              return cameraFloor;
+            }
+          }
+        }
+      }
+
+      if (normalizedFloorId == 'G' ||
+          normalizedFloorId.contains('GROUND')) {
+        return 'G';
+      }
+
+      final levelMatch = RegExp(r'\d+').firstMatch(normalizedFloorId);
+      final levelNumber = levelMatch == null
+          ? null
+          : int.tryParse(levelMatch.group(0)!);
+
+      if (levelNumber != null) {
+        final cameraFloor = levelNumber == 0 ? 'G' : 'L$levelNumber';
+
+        if (_floors.contains(cameraFloor)) {
+          return cameraFloor;
+        }
+      }
+    }
+
+    final normalizedNodeId = location.nodeId.trim().toUpperCase();
+
+    for (final floor in _floors) {
+      if (normalizedNodeId == floor ||
+          normalizedNodeId.startsWith('${floor}_') ||
+          normalizedNodeId.startsWith('${floor}N')) {
+        return floor;
+      }
+    }
+
+    return null;
+  }
+
+  void _focusMapOnLocation(
+    DestinationModel location, {
+    required String reason,
+  }) {
+    final floor = _cameraFloorForLocation(location);
+
+    if (floor == null) {
+      debugPrint(
+        'CampusGO camera floor unresolved for ${location.nodeId} '
+        '(floor_id: ${location.floorId}, reason: $reason).',
+      );
+      return;
+    }
+
+    debugPrint(
+      'CampusGO camera requesting $floor for ${location.nodeId} '
+      '(reason: $reason).',
+    );
+    _selectFloor(floor);
+  }
+
+  /// Recenter must return to the floor containing the user's ORIGINAL/current
+  /// start location for the navigation session, not whichever floor happens
+  /// to be selected right now. Falling back to the destination, and then to
+  /// a same-floor reselect, keeps the button useful even before a route has
+  /// been calculated.
+  void _handleRecenterPressed() {
+    final startLocation = _navigationController.currentLocation;
+
+    if (startLocation != null) {
+      _focusMapOnLocation(
+        startLocation,
+        reason: 'recenter button; return to current location',
+      );
+      _showMessage('Map recentered.');
+      return;
+    }
+
+    final destination = _navigationController.destination;
+
+    if (destination != null) {
+      _focusMapOnLocation(
+        destination,
+        reason: 'recenter button; no current location set, using destination',
+      );
+      _showMessage('Map recentered.');
+      return;
+    }
+
+    // Nothing selected yet: still force the Spline camera back onto the
+    // currently selected floor's saved view (same-floor reselect).
+    _selectFloor(_selectedFloor);
+    _showMessage('Map recentered.');
+  }
+
   void _handleLocationFocusChanged() {
     if (mounted) {
       setState(() {});
@@ -203,6 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
       selection: TextSelection.collapsed(offset: location.name.length),
     );
     _navigationController.selectCurrentLocation(location);
+    _focusMapOnLocation(location, reason: 'current location selected');
     _currentLocationFocusNode.unfocus();
   }
 
@@ -212,6 +336,7 @@ class _HomeScreenState extends State<HomeScreen> {
       selection: TextSelection.collapsed(offset: destination.name.length),
     );
     _navigationController.selectDestination(destination);
+    _focusMapOnLocation(destination, reason: 'destination selected');
     _destinationFocusNode.unfocus();
   }
 
@@ -242,6 +367,15 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint('CampusGO route node IDs: ${result.nodeIds.join(' -> ')}');
     debugPrint('CampusGO route edge IDs: ${result.edgeIds.join(' -> ')}');
     debugPrint('CampusGO route total cost: ${result.totalCost}');
+
+    final startLocation = _navigationController.currentLocation;
+
+    if (startLocation != null) {
+      _focusMapOnLocation(
+        startLocation,
+        reason: 'route calculated; return to route start',
+      );
+    }
 
     _collapseNavigationPanel();
     _showMessage(
@@ -498,9 +632,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           onAccessibilityPressed: () {
                             _setAccessibility(!_isAccessibilityEnabled);
                           },
-                          onRecenterPressed: () {
-                            _showMessage('Map recentered.');
-                          },
+                          onRecenterPressed: _handleRecenterPressed,
                         ),
                       ],
                     ),

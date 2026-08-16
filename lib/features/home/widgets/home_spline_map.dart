@@ -238,6 +238,198 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       return true;
     };
 
+    /*
+     * ---------------------------------------------------------------------
+     * REMEMBERED FLOOR CAMERA TRANSFORMS
+     * ---------------------------------------------------------------------
+     * Diagnostic logging (see chat history) confirmed that spline._camera
+     * is the single, real, rendered camera: its position/rotation/
+     * quaternion/zoom genuinely change with both orbit and floor switches.
+     * spline._camera.orthoCamera / .perspCamera are inert templates always
+     * stuck at identity — not involved in rendering. No separate
+     * orbit-controls object (something exposing target/update()/enabled)
+     * was found anywhere reachable from `spline`, so orbit most likely
+     * writes straight into spline._camera itself.
+     *
+     * That means replaying the Mouse Up event asks Spline to re-run its own
+     * animated Switch Camera tween starting from wherever the camera
+     * currently sits — and if that tween gets interrupted (another dispatch
+     * fired mid-flight, or it overlaps an in-progress drag), it can settle
+     * slightly off. That matches "a little glitchy" rather than "broken".
+     *
+     * Fix: the first time a floor is requested, still use Spline's own
+     * dispatch()-based transition (so it plays a real animation), then once
+     * it should have settled, remember spline._camera's actual resulting
+     * transform for that floor name. Every later request for that same
+     * floor skips dispatch() entirely and animates spline._camera straight
+     * to the remembered transform ourselves — never touching Spline's own
+     * transition or orbit machinery, so nothing orbit does can corrupt it.
+     */
+    const floorCameraCache = {};
+    let cameraTweenFrame = null;
+
+    function cloneCameraTransform() {
+      const camera = spline._camera;
+      return {
+        position: {
+          x: camera.position.x,
+          y: camera.position.y,
+          z: camera.position.z,
+        },
+        quaternion: {
+          x: camera.quaternion.x,
+          y: camera.quaternion.y,
+          z: camera.quaternion.z,
+          w: camera.quaternion.w,
+        },
+        zoom: camera.zoom,
+      };
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function tweenCameraTo(targetTransform, durationMs, onComplete) {
+      if (cameraTweenFrame !== null) {
+        cancelAnimationFrame(cameraTweenFrame);
+        cameraTweenFrame = null;
+      }
+
+      const camera = spline._camera;
+      const start = cloneCameraTransform();
+      const startTime = performance.now();
+
+      function step(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, durationMs <= 0 ? 1 : elapsed / durationMs);
+        // Ease-out cubic, close to the feel of Spline's own default
+        // transition curve.
+        const eased = 1 - Math.pow(1 - t, 3);
+
+        camera.position.x = lerp(start.position.x, targetTransform.position.x, eased);
+        camera.position.y = lerp(start.position.y, targetTransform.position.y, eased);
+        camera.position.z = lerp(start.position.z, targetTransform.position.z, eased);
+
+        const qx = lerp(start.quaternion.x, targetTransform.quaternion.x, eased);
+        const qy = lerp(start.quaternion.y, targetTransform.quaternion.y, eased);
+        const qz = lerp(start.quaternion.z, targetTransform.quaternion.z, eased);
+        const qw = lerp(start.quaternion.w, targetTransform.quaternion.w, eased);
+        const qLen = Math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw) || 1;
+        camera.quaternion.x = qx / qLen;
+        camera.quaternion.y = qy / qLen;
+        camera.quaternion.z = qz / qLen;
+        camera.quaternion.w = qw / qLen;
+
+        camera.zoom = lerp(start.zoom, targetTransform.zoom, eased);
+
+        // Both are safe no-ops if the runtime's camera object doesn't
+        // expose them; harmless either way, but keep any cached
+        // matrix/projection state consistent if it does.
+        if (typeof camera.updateMatrixWorld === 'function') {
+          camera.updateMatrixWorld(true);
+        }
+        if (typeof camera.updateProjectionMatrix === 'function') {
+          camera.updateProjectionMatrix();
+        }
+
+        spline.requestRender();
+
+        if (t < 1) {
+          cameraTweenFrame = requestAnimationFrame(step);
+        } else {
+          cameraTweenFrame = null;
+          if (onComplete) onComplete();
+        }
+      }
+
+      cameraTweenFrame = requestAnimationFrame(step);
+    }
+
+    /*
+     * ---------------------------------------------------------------------
+     * FLUTTER-ONLY FLOOR CAMERA EVENTS
+     * ---------------------------------------------------------------------
+     *
+     * In the Spline editor each visible floor (L9, L8, L6, L3, L1, G)
+     * already owns a Mouse Up -> Switch Camera event.
+     *
+     * We still want Flutter's floor buttons to reuse those authored events,
+     * but we do NOT want a real tap/click on the visible floor geometry to
+     * trigger the same camera switch.
+     *
+     * The runtime uses the same event object's dispatch() method for a real
+     * Spline Mouse Up. So after the scene loads we wrap only those six floor
+     * event dispatchers with a no-op. The original bound dispatch functions
+     * are kept in a WeakMap. Flutter's replayMouseUpEvent() calls the saved
+     * original directly, so the buttons still work while map clicks do not.
+     *
+     * This does NOT block pointer input on the canvas, therefore orbit, pan
+     * and pinch/zoom continue to work normally.
+     */
+    const flutterControlledFloorNames = [
+      'L9',
+      'L8',
+      'L6',
+      'L3',
+      'L1',
+      'G',
+    ];
+
+    const originalFloorMouseUpDispatches = new WeakMap();
+
+    function getMouseUpEventsForObject(object) {
+      return (
+        spline.eventManager?.handlers?.Basic?.eventsPerObjects?.MouseUp?.[
+          object.uuid
+        ] ?? []
+      );
+    }
+
+    function installFlutterOnlyFloorMouseUpGuards() {
+      flutterControlledFloorNames.forEach(function(floorName) {
+        const floorObject = spline.findObjectByName(floorName);
+
+        if (!floorObject) {
+          sendToFlutter('floor-guard-missing:' + floorName);
+          return;
+        }
+
+        const mouseUpEvents = getMouseUpEventsForObject(floorObject);
+
+        if (!Array.isArray(mouseUpEvents) || mouseUpEvents.length === 0) {
+          sendToFlutter('floor-guard-no-event:' + floorName);
+          return;
+        }
+
+        mouseUpEvents.forEach(function(event) {
+          if (originalFloorMouseUpDispatches.has(event)) {
+            return;
+          }
+
+          if (typeof event.dispatch !== 'function') {
+            sendToFlutter('floor-guard-invalid-event:' + floorName);
+            return;
+          }
+
+          const originalDispatch = event.dispatch.bind(event);
+          originalFloorMouseUpDispatches.set(event, originalDispatch);
+
+          try {
+            event.dispatch = function() {
+              sendToFlutter('floor-map-click-blocked:' + floorName);
+            };
+          } catch (error) {
+            sendToFlutter(
+              'floor-guard-error:' + floorName + ':' + String(error)
+            );
+          }
+        });
+
+        sendToFlutter('floor-guard-ready:' + floorName);
+      });
+    }
+
     function replayMouseUpEvent(floorObject) {
       /*
        * A real canvas tap makes Spline call dispatch(), which restarts its
@@ -248,18 +440,30 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
        * Use the same Basic Mouse Up event objects as a real tap and call their
        * replayable dispatch() method. The runtime version is pinned above so
        * this event-manager structure stays consistent.
+       *
+       * This is now only used the FIRST time a given floor is requested, to
+       * learn its true camera transform (see floorCameraCache above). Every
+       * later request for that floor bypasses this entirely.
        */
-      const mouseUpEvents =
-        spline.eventManager?.handlers?.Basic?.eventsPerObjects?.MouseUp?.[
-          floorObject.uuid
-        ];
+      const mouseUpEvents = getMouseUpEventsForObject(floorObject);
 
       if (!Array.isArray(mouseUpEvents) || mouseUpEvents.length === 0) {
         return false;
       }
 
       mouseUpEvents.forEach(function(event) {
-        event.dispatch();
+        /*
+         * If the floor guard is installed, bypass its no-op wrapper and call
+         * the original Spline dispatcher. This path is reachable only from
+         * Flutter's explicit window.selectFloor(...) command.
+         */
+        const originalDispatch = originalFloorMouseUpDispatches.get(event);
+
+        if (originalDispatch) {
+          originalDispatch();
+        } else {
+          event.dispatch();
+        }
       });
 
       return true;
@@ -273,6 +477,17 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         return false;
       }
 
+      const cached = floorCameraCache[floorName];
+
+      if (cached) {
+        tweenCameraTo(cached, 500, function() {
+          sendToFlutter('selected:' + floorName);
+        });
+        return true;
+      }
+
+      // First-ever request for this floor: use Spline's own transition so
+      // it plays a real animation, then remember where it actually landed.
       const replayed = replayMouseUpEvent(floorObject);
 
       if (!replayed) {
@@ -282,12 +497,23 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
       sendToFlutter('selected:' + floorName);
 
+      setTimeout(function() {
+        floorCameraCache[floorName] = cloneCameraTransform();
+        sendToFlutter('camera-cache-learned:' + floorName);
+      }, 1000);
+
       return true;
     };
 
     spline
       .load('$_sceneUrl')
       .then(function() {
+        /*
+         * Disable the visible floor objects' physical Mouse Up camera
+         * switches before Flutter receives the ready signal.
+         */
+        installFlutterOnlyFloorMouseUpGuards();
+
         const startMarker = spline.findObjectByName(startMarkerName);
         const destinationMarker = spline.findObjectByName(
           destinationMarkerName
@@ -434,6 +660,16 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     }
 
     if (value == 'markers-updated') {
+      return;
+    }
+
+    if (value.startsWith('camera-cache-learned:')) {
+      final floor = value.substring('camera-cache-learned:'.length);
+      debugPrint(
+        'CampusGO learned the camera transform for floor $floor; future '
+        "switches to it will animate directly instead of replaying Spline's "
+        'Switch Camera event.',
+      );
       return;
     }
 

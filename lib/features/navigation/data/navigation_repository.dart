@@ -87,9 +87,7 @@ class NavigationRepository {
   }
 
   /// Loads one internally consistent graph snapshot for Dijkstra.
-  Future<NavigationGraphData> loadGraph({
-    bool accessibleOnly = false,
-  }) async {
+  Future<NavigationGraphData> loadGraph({bool accessibleOnly = false}) async {
     final results = await Future.wait<Object>([
       fetchFloors(),
       fetchActiveNodes(),
@@ -139,7 +137,10 @@ class NavigationRepository {
       if (row == null) return null;
       return NodeModel.fromJson(Map<String, dynamic>.from(row));
     } catch (error) {
-      throw AppException('Unable to find that CampusGO location.', cause: error);
+      throw AppException(
+        'Unable to find that CampusGO location.',
+        cause: error,
+      );
     }
   }
 

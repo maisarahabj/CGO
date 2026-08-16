@@ -263,10 +263,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       }
     }
 
-    if (!setEquals(
-      oldWidget.visibleRouteEdgeIds,
-      widget.visibleRouteEdgeIds,
-    )) {
+    if (!setEquals(oldWidget.visibleRouteEdgeIds, widget.visibleRouteEdgeIds)) {
       if (_isSplineReady) {
         unawaited(_sendRouteEdges());
       }

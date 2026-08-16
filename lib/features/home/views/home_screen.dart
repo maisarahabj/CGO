@@ -75,11 +75,40 @@ class _HomeScreenState extends State<HomeScreen> {
     return widget.accessMode == HomeAccessMode.registeredUser;
   }
 
+  String get _activeSearchQuery {
+    if (_currentLocationFocusNode.hasFocus) {
+      return _currentLocationController.text.trim();
+    }
+
+    if (_destinationFocusNode.hasFocus) {
+      return _destinationController.text.trim();
+    }
+
+    return '';
+  }
+
+  bool get _isSearchActive {
+    return _navigationController.isReady && _activeSearchQuery.isNotEmpty;
+  }
+
+  List<DestinationModel> get _searchSuggestions {
+    if (!_isSearchActive) return const [];
+
+    return _navigationController.searchDestinations(
+      _activeSearchQuery,
+      limit: 4,
+    );
+  }
+
+  bool get _isPanelVisuallyExpanded {
+    return _isNavigationPanelExpanded || _isSearchActive;
+  }
+
   bool get _showOngoingClassReminder {
     final currentClass = widget.ongoingClass;
 
     return _isRegisteredUser &&
-        !_isNavigationPanelExpanded &&
+        !_isPanelVisuallyExpanded &&
         currentClass != null &&
         currentClass.timetableId != _dismissedTimetableId;
   }
@@ -95,6 +124,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _navigationController = NavigationController()
       ..addListener(_handleNavigationStateChanged);
+    _currentLocationController.addListener(_handleSearchTextChanged);
+    _destinationController.addListener(_handleSearchTextChanged);
     _currentLocationFocusNode.addListener(_handleLocationFocusChanged);
     _destinationFocusNode.addListener(_handleLocationFocusChanged);
     unawaited(_loadNavigationGraph());
@@ -150,6 +181,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _handleSearchTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   Future<void> _loadNavigationGraph() async {
     await _navigationController.loadGraph();
 
@@ -160,22 +197,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Iterable<DestinationModel> _searchLocations(TextEditingValue value) {
-    if (!_navigationController.isReady) {
-      return const <DestinationModel>[];
-    }
-
-    return _navigationController.searchDestinations(value.text);
-  }
-
   void _selectCurrentLocation(DestinationModel location) {
+    _currentLocationController.value = TextEditingValue(
+      text: location.name,
+      selection: TextSelection.collapsed(offset: location.name.length),
+    );
     _navigationController.selectCurrentLocation(location);
     _currentLocationFocusNode.unfocus();
   }
 
   void _selectDestination(DestinationModel destination) {
+    _destinationController.value = TextEditingValue(
+      text: destination.name,
+      selection: TextSelection.collapsed(offset: destination.name.length),
+    );
     _navigationController.selectDestination(destination);
     _destinationFocusNode.unfocus();
+  }
+
+  void _selectSearchSuggestion(DestinationModel suggestion) {
+    if (_currentLocationFocusNode.hasFocus) {
+      _selectCurrentLocation(suggestion);
+      return;
+    }
+
+    if (_destinationFocusNode.hasFocus) {
+      _selectDestination(suggestion);
+    }
   }
 
   void _startNavigation() {
@@ -185,7 +233,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final result = _navigationController.calculateRoute();
     if (result == null) {
       _showMessage(
-        _navigationController.message ?? 'CampusGO could not calculate a route.',
+        _navigationController.message ??
+            'CampusGO could not calculate a route.',
       );
       return;
     }
@@ -278,17 +327,24 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentLocationFocusNode
       ..removeListener(_handleLocationFocusChanged)
       ..dispose();
-    _currentLocationController.dispose();
+    _currentLocationController
+      ..removeListener(_handleSearchTextChanged)
+      ..dispose();
     _destinationFocusNode
       ..removeListener(_handleLocationFocusChanged)
       ..dispose();
-    _destinationController.dispose();
+    _destinationController
+      ..removeListener(_handleSearchTextChanged)
+      ..dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+    final isSearchActive = _isSearchActive;
+    final searchSuggestions = _searchSuggestions;
+    final isPanelVisuallyExpanded = _isPanelVisuallyExpanded;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -343,9 +399,20 @@ class _HomeScreenState extends State<HomeScreen> {
               final expandedPanelHeight = (constraints.maxHeight * 0.64)
                   .clamp(collapsedPanelHeight, constraints.maxHeight - 64)
                   .toDouble();
-              final panelHeight = _isNavigationPanelExpanded
+              final guestSearchRows = math.max(1, searchSuggestions.length);
+              final guestSearchMaximumHeight = math.max(
+                collapsedPanelHeight,
+                constraints.maxHeight - 64,
+              );
+              final guestSearchPanelHeight =
+                  (collapsedPanelHeight + 8 + (guestSearchRows * 58))
+                      .clamp(collapsedPanelHeight, guestSearchMaximumHeight)
+                      .toDouble();
+              final panelHeight = !isPanelVisuallyExpanded
+                  ? collapsedPanelHeight
+                  : _isRegisteredUser
                   ? expandedPanelHeight
-                  : collapsedPanelHeight;
+                  : guestSearchPanelHeight;
               final maximumSideBottom = math.max(
                 12.0,
                 constraints.maxHeight - 225,
@@ -436,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       curve: Curves.easeOutCubic,
                       height: panelHeight,
                       child: HomeNavigationPanel(
-                        isExpanded: _isNavigationPanelExpanded,
+                        isExpanded: isPanelVisuallyExpanded,
                         isRegisteredUser: _isRegisteredUser,
                         bottomSafeArea: bottomSafeArea,
                         ongoingClass: widget.ongoingClass,
@@ -447,10 +514,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         destinationFocusNode: _destinationFocusNode,
                         isDestinationEditable:
                             !_isRegisteredUser || _isNavigationPanelExpanded,
-                        currentLocationOptionsBuilder: _searchLocations,
-                        destinationOptionsBuilder: _searchLocations,
-                        onCurrentLocationSelected: _selectCurrentLocation,
-                        onDestinationSelected: _selectDestination,
+                        isSearchActive: isSearchActive,
+                        searchSuggestions: searchSuggestions,
+                        onSearchSuggestionSelected: _selectSearchSuggestion,
                         onCurrentLocationTextChanged:
                             _navigationController.currentLocationTextChanged,
                         onDestinationTextChanged:

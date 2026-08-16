@@ -42,8 +42,7 @@ class NodeModel {
   }
 
   /// Whether this node has a position that can later be sent to Spline.
-  bool get hasCoordinates =>
-      xCoord != null && yCoord != null && zCoord != null;
+  bool get hasCoordinates => xCoord != null && yCoord != null && zCoord != null;
 
   /// Only active, labelled nodes should be offered to the user as destinations.
   /// Unlabelled junction nodes remain available to Dijkstra but stay out of

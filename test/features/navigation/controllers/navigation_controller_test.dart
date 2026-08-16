@@ -21,19 +21,22 @@ void main() {
       controller.dispose();
     });
 
-    test('loads the graph once and builds destinations from its nodes', () async {
-      await Future.wait([controller.loadGraph(), controller.loadGraph()]);
-      await controller.loadGraph();
+    test(
+      'loads the graph once and builds destinations from its nodes',
+      () async {
+        await Future.wait([controller.loadGraph(), controller.loadGraph()]);
+        await controller.loadGraph();
 
-      expect(repository.loadCount, 1);
-      expect(repository.requestedAccessibilityValues, [false]);
-      expect(controller.isReady, isTrue);
-      expect(controller.destinations.map((item) => item.nodeId), [
-        'A',
-        'C',
-        'B',
-      ]);
-    });
+        expect(repository.loadCount, 1);
+        expect(repository.requestedAccessibilityValues, [false]);
+        expect(controller.isReady, isTrue);
+        expect(controller.destinations.map((item) => item.nodeId), [
+          'A',
+          'C',
+          'B',
+        ]);
+      },
+    );
 
     test('searches the cached destination list without another load', () async {
       await controller.loadGraph();
@@ -124,11 +127,7 @@ void main() {
 }
 
 NavigationGraphData _testGraph() {
-  const floor = FloorModel(
-    floorId: 'L8',
-    levelNumber: 8,
-    floorName: 'Level 8',
-  );
+  const floor = FloorModel(floorId: 'L8', levelNumber: 8, floorName: 'Level 8');
   const nodes = [
     NodeModel(nodeId: 'A', floorId: 'L8', label: 'Alpha Room'),
     NodeModel(nodeId: 'B', floorId: 'L8', label: 'Main Lift'),
@@ -157,11 +156,7 @@ NavigationGraphData _testGraph() {
     ),
   ];
 
-  return NavigationGraphData(
-    floors: const [floor],
-    nodes: nodes,
-    edges: edges,
-  );
+  return NavigationGraphData(floors: const [floor], nodes: nodes, edges: edges);
 }
 
 class _FakeNavigationRepository implements NavigationRepository {

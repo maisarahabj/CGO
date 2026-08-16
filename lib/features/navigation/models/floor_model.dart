@@ -21,8 +21,8 @@ class FloorModel {
 
     if (floorId.toUpperCase() == 'G') return 'Ground Floor';
 
-    final number = levelNumber?.toString() ??
-        floorId.replaceAll(RegExp(r'[^0-9]'), '');
+    final number =
+        levelNumber?.toString() ?? floorId.replaceAll(RegExp(r'[^0-9]'), '');
     return number.isEmpty ? floorId : 'Level $number';
   }
 

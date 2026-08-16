@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_assets.dart';
-import '../../navigation/models/destination_model.dart';
 
 class HomeLocationFields extends StatelessWidget {
   const HomeLocationFields({
@@ -11,10 +10,6 @@ class HomeLocationFields extends StatelessWidget {
     required this.destinationController,
     required this.destinationFocusNode,
     required this.isDestinationEditable,
-    required this.currentLocationOptionsBuilder,
-    required this.destinationOptionsBuilder,
-    required this.onCurrentLocationSelected,
-    required this.onDestinationSelected,
     required this.onCurrentLocationTextChanged,
     required this.onDestinationTextChanged,
     required this.canStartNavigation,
@@ -33,11 +28,6 @@ class HomeLocationFields extends StatelessWidget {
   final TextEditingController destinationController;
   final FocusNode destinationFocusNode;
   final bool isDestinationEditable;
-  final AutocompleteOptionsBuilder<DestinationModel>
-      currentLocationOptionsBuilder;
-  final AutocompleteOptionsBuilder<DestinationModel> destinationOptionsBuilder;
-  final AutocompleteOnSelected<DestinationModel> onCurrentLocationSelected;
-  final AutocompleteOnSelected<DestinationModel> onDestinationSelected;
   final ValueChanged<String> onCurrentLocationTextChanged;
   final ValueChanged<String> onDestinationTextChanged;
   final bool canStartNavigation;
@@ -58,8 +48,6 @@ class HomeLocationFields extends StatelessWidget {
           controller: currentLocationController,
           focusNode: currentLocationFocusNode,
           leadingAsset: AppAssets.currentLocation,
-          optionsBuilder: currentLocationOptionsBuilder,
-          onSelected: onCurrentLocationSelected,
           onTextChanged: onCurrentLocationTextChanged,
           onPressed: onCurrentLocationPressed,
           trailing: IconButton(
@@ -80,8 +68,6 @@ class HomeLocationFields extends StatelessWidget {
           controller: destinationController,
           focusNode: destinationFocusNode,
           isEditable: isDestinationEditable,
-          optionsBuilder: destinationOptionsBuilder,
-          onSelected: onDestinationSelected,
           onTextChanged: onDestinationTextChanged,
           canStartNavigation: canStartNavigation,
           isNavigationLoading: isNavigationLoading,
@@ -100,8 +86,6 @@ class _DestinationField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.isEditable,
-    required this.optionsBuilder,
-    required this.onSelected,
     required this.onTextChanged,
     required this.canStartNavigation,
     required this.isNavigationLoading,
@@ -114,8 +98,6 @@ class _DestinationField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isEditable;
-  final AutocompleteOptionsBuilder<DestinationModel> optionsBuilder;
-  final AutocompleteOnSelected<DestinationModel> onSelected;
   final ValueChanged<String> onTextChanged;
   final bool canStartNavigation;
   final bool isNavigationLoading;
@@ -169,59 +151,40 @@ class _DestinationField extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: isEditable
-                    ? RawAutocomplete<DestinationModel>(
-                        textEditingController: controller,
+                    ? TextField(
+                        controller: controller,
                         focusNode: focusNode,
-                        displayStringForOption: (option) => option.name,
-                        optionsBuilder: optionsBuilder,
-                        onSelected: onSelected,
-                        fieldViewBuilder:
-                            (
-                              context,
-                              textController,
-                              fieldFocusNode,
-                              onFieldSubmitted,
-                            ) {
-                              return TextField(
-                                controller: textController,
-                                focusNode: fieldFocusNode,
-                                keyboardType: TextInputType.text,
-                                textInputAction: TextInputAction.search,
-                                textCapitalization: TextCapitalization.words,
-                                maxLines: 1,
-                                cursorColor: const Color(0xFF2A77B4),
-                                style: const TextStyle(
-                                  fontFamily: 'Roboto',
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF1E1E1E),
-                                  height: 1,
-                                ),
-                                decoration: const InputDecoration.collapsed(
-                                  hintText: 'Where to?',
-                                  hintStyle: TextStyle(
-                                    fontFamily: 'Roboto',
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFFB8B8B8),
-                                    height: 1,
-                                  ),
-                                ),
-                                onChanged: onTextChanged,
-                                onSubmitted: (_) {
-                                  onFieldSubmitted();
-                                  if (canStartNavigation) {
-                                    onStartNavigationPressed();
-                                  }
-                                },
-                              );
-                            },
-                        optionsViewBuilder: _buildOptionsView,
+                        keyboardType: TextInputType.text,
+                        textInputAction: TextInputAction.search,
+                        textCapitalization: TextCapitalization.words,
+                        maxLines: 1,
+                        cursorColor: const Color(0xFF2A77B4),
+                        style: const TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1E1E1E),
+                          height: 1,
+                        ),
+                        decoration: const InputDecoration.collapsed(
+                          hintText: 'Where to?',
+                          hintStyle: TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 24,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFFB8B8B8),
+                            height: 1,
+                          ),
+                        ),
+                        onChanged: onTextChanged,
+                        onSubmitted: (_) {
+                          if (canStartNavigation) {
+                            onStartNavigationPressed();
+                          }
+                        },
                       )
                     : Text(
-                        controller.text.isEmpty
-                            ? 'Where to?'
-                            : controller.text,
+                        controller.text.isEmpty ? 'Where to?' : controller.text,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -250,8 +213,9 @@ class _DestinationField extends StatelessWidget {
               else
                 IconButton(
                   tooltip: 'Calculate route',
-                  onPressed:
-                      canStartNavigation ? onStartNavigationPressed : null,
+                  onPressed: canStartNavigation
+                      ? onStartNavigationPressed
+                      : null,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(
                     width: 38,
@@ -274,8 +238,6 @@ class _CurrentLocationField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.leadingAsset,
-    required this.optionsBuilder,
-    required this.onSelected,
     required this.onTextChanged,
     required this.onPressed,
     this.trailing,
@@ -284,8 +246,6 @@ class _CurrentLocationField extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final String leadingAsset;
-  final AutocompleteOptionsBuilder<DestinationModel> optionsBuilder;
-  final AutocompleteOnSelected<DestinationModel> onSelected;
   final ValueChanged<String> onTextChanged;
   final VoidCallback onPressed;
   final Widget? trailing;
@@ -323,52 +283,33 @@ class _CurrentLocationField extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: RawAutocomplete<DestinationModel>(
-                  textEditingController: controller,
+                child: TextField(
+                  controller: controller,
                   focusNode: focusNode,
-                  displayStringForOption: (option) => option.name,
-                  optionsBuilder: optionsBuilder,
-                  onSelected: onSelected,
-                  fieldViewBuilder:
-                      (
-                        context,
-                        textController,
-                        fieldFocusNode,
-                        onFieldSubmitted,
-                      ) {
-                        return TextField(
-                          controller: textController,
-                          focusNode: fieldFocusNode,
-                          keyboardType: TextInputType.text,
-                          textInputAction: TextInputAction.search,
-                          textCapitalization: TextCapitalization.words,
-                          maxLines: 1,
-                          cursorColor: const Color(0xFF2A77B4),
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 24,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1E1E1E),
-                            height: 1,
-                          ),
-                          decoration: const InputDecoration.collapsed(
-                            hintText: 'Current Location',
-                            hintStyle: TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 24,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFFB8B8B8),
-                              height: 1,
-                            ),
-                          ),
-                          onChanged: onTextChanged,
-                          onSubmitted: (_) {
-                            onFieldSubmitted();
-                            fieldFocusNode.unfocus();
-                          },
-                        );
-                      },
-                  optionsViewBuilder: _buildOptionsView,
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.search,
+                  textCapitalization: TextCapitalization.words,
+                  maxLines: 1,
+                  cursorColor: const Color(0xFF2A77B4),
+                  style: const TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF1E1E1E),
+                    height: 1,
+                  ),
+                  decoration: const InputDecoration.collapsed(
+                    hintText: 'Current Location',
+                    hintStyle: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 24,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFFB8B8B8),
+                      height: 1,
+                    ),
+                  ),
+                  onChanged: onTextChanged,
+                  onSubmitted: (_) => focusNode.unfocus(),
                 ),
               ),
               if (trailing != null) ...[const SizedBox(width: 6), trailing!],
@@ -378,66 +319,4 @@ class _CurrentLocationField extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _buildOptionsView(
-  BuildContext context,
-  AutocompleteOnSelected<DestinationModel> onSelected,
-  Iterable<DestinationModel> options,
-) {
-  final optionList = options.toList(growable: false);
-
-  return Align(
-    alignment: Alignment.topLeft,
-    child: Material(
-      elevation: 8,
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width - 72,
-          maxHeight: 280,
-        ),
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          shrinkWrap: true,
-          itemCount: optionList.length,
-          separatorBuilder: (_, _) => const Divider(height: 1),
-          itemBuilder: (context, index) {
-            final option = optionList[index];
-            final details = [
-              option.floorId,
-              option.nodeType,
-            ].whereType<String>().where((value) => value.trim().isNotEmpty);
-
-            return ListTile(
-              dense: true,
-              leading: const Icon(
-                Icons.place_outlined,
-                color: Color(0xFF2A77B4),
-              ),
-              title: Text(
-                option.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Roboto',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              subtitle: details.isEmpty
-                  ? null
-                  : Text(
-                      details.join(' · '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-              onTap: () => onSelected(option),
-            );
-          },
-        ),
-      ),
-    ),
-  );
 }

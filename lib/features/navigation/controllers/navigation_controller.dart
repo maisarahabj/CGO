@@ -87,10 +87,7 @@ class NavigationController extends ChangeNotifier {
   }
 
   /// Filters the already-built destination list locally as the user types.
-  List<DestinationModel> searchDestinations(
-    String query, {
-    int limit = 12,
-  }) {
+  List<DestinationModel> searchDestinations(String query, {int limit = 12}) {
     return _repository.filterDestinations(
       destinations: _destinations,
       query: query,

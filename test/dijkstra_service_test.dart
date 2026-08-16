@@ -170,19 +170,13 @@ void main() {
       print('===================================');
 
       expect(route.hasRoute, isTrue);
-      expect(
-        route.nodeIds,
-        ['L8_N1', 'L8_N2', 'L8_N8', 'L8_N9', 'L8_N12'],
-      );
-      expect(
-        route.edgeIds,
-        [
-          'E_L8N1_L8N2',
-          'E_L8N2_L8N8',
-          'E_L8N8_L8N9',
-          'E_L8N9_L8N12',
-        ],
-      );
+      expect(route.nodeIds, ['L8_N1', 'L8_N2', 'L8_N8', 'L8_N9', 'L8_N12']);
+      expect(route.edgeIds, [
+        'E_L8N1_L8N2',
+        'E_L8N2_L8N8',
+        'E_L8N8_L8N9',
+        'E_L8N9_L8N12',
+      ]);
       expect(route.totalCost, closeTo(1935.77, 0.001));
     });
   });

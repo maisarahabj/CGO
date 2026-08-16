@@ -17,8 +17,12 @@ class NavigationGraphData {
        floorById = Map.unmodifiable({
          for (final floor in floors) floor.floorId: floor,
        }),
-       nodeById = Map.unmodifiable({for (final node in nodes) node.nodeId: node}),
-       edgeById = Map.unmodifiable({for (final edge in edges) edge.edgeId: edge});
+       nodeById = Map.unmodifiable({
+         for (final node in nodes) node.nodeId: node,
+       }),
+       edgeById = Map.unmodifiable({
+         for (final edge in edges) edge.edgeId: edge,
+       });
 
   final List<FloorModel> floors;
   final List<NodeModel> nodes;
@@ -40,8 +44,10 @@ class NavigationGraphData {
       edges.where((edge) => !edge.isUsableForRouting).toList(growable: false);
 
   /// Edges that refer to a node not present in this active graph snapshot.
-  List<EdgeModel> get orphanedEdges => edges.where((edge) {
-    return !nodeById.containsKey(edge.sourceNodeId) ||
-        !nodeById.containsKey(edge.targetNodeId);
-  }).toList(growable: false);
+  List<EdgeModel> get orphanedEdges => edges
+      .where((edge) {
+        return !nodeById.containsKey(edge.sourceNodeId) ||
+            !nodeById.containsKey(edge.targetNodeId);
+      })
+      .toList(growable: false);
 }

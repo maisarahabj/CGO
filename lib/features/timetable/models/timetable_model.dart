@@ -22,7 +22,6 @@ class TimetableModel {
   final String? startTime;
   final String? endTime;
 
-  /// Converts one Supabase timetable row into a TimetableModel.
   factory TimetableModel.fromJson(Map<String, dynamic> json) {
     return TimetableModel(
       timetableId: (json['timetable_id'] as num).toInt(),
@@ -37,7 +36,6 @@ class TimetableModel {
     );
   }
 
-  /// Converts this model back into Supabase column names.
   Map<String, dynamic> toJson() {
     return {
       'timetable_id': timetableId,
@@ -50,5 +48,29 @@ class TimetableModel {
       'start_time': startTime,
       'end_time': endTime,
     };
+  }
+
+  TimetableModel copyWith({
+    int? timetableId,
+    String? roomNodeId,
+    String? roomName,
+    String? subjectCode,
+    String? subjectName,
+    String? lecturer,
+    String? day,
+    String? startTime,
+    String? endTime,
+  }) {
+    return TimetableModel(
+      timetableId: timetableId ?? this.timetableId,
+      roomNodeId: roomNodeId ?? this.roomNodeId,
+      roomName: roomName ?? this.roomName,
+      subjectCode: subjectCode ?? this.subjectCode,
+      subjectName: subjectName ?? this.subjectName,
+      lecturer: lecturer ?? this.lecturer,
+      day: day ?? this.day,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+    );
   }
 }

@@ -14,6 +14,18 @@ class FloorModel {
   final String? splineUrl;
   final bool isAccessible;
 
+  /// Human-readable floor text used in destination search results.
+  String get displayName {
+    final name = floorName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+
+    if (floorId.toUpperCase() == 'G') return 'Ground Floor';
+
+    final number =
+        levelNumber?.toString() ?? floorId.replaceAll(RegExp(r'[^0-9]'), '');
+    return number.isEmpty ? floorId : 'Level $number';
+  }
+
   /// Converts a Supabase floors row into a FloorModel.
   factory FloorModel.fromJson(Map<String, dynamic> json) {
     return FloorModel(

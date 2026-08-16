@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,10 +8,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
+import '../../navigation/controllers/navigation_controller.dart';
+import '../../navigation/models/destination_model.dart';
 import '../../profile/models/profile_model.dart';
 import '../models/ongoing_class_model.dart';
 import '../widgets/home_floor_selector.dart';
-import '../widgets/home_map_placeholder.dart';
+import '../widgets/home_spline_map.dart';
 import '../widgets/home_navigation_panel.dart';
 import '../widgets/home_side_controls.dart';
 import '../widgets/ongoing_class_card.dart';
@@ -58,20 +61,54 @@ class _HomeScreenState extends State<HomeScreen> {
   final FocusNode _currentLocationFocusNode = FocusNode();
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _destinationFocusNode = FocusNode();
-  String _selectedFloor = 'L9';
-  bool _isAccessibilityEnabled = false;
+  late final NavigationController _navigationController;
+  String _selectedFloor = 'L8';
+  int _floorSelectionRequest = 0;
   bool _isNavigationPanelExpanded = false;
   String? _dismissedTimetableId;
 
+  bool get _isAccessibilityEnabled {
+    return _navigationController.accessibleOnly;
+  }
+
   bool get _isRegisteredUser {
     return widget.accessMode == HomeAccessMode.registeredUser;
+  }
+
+  String get _activeSearchQuery {
+    if (_currentLocationFocusNode.hasFocus) {
+      return _currentLocationController.text.trim();
+    }
+
+    if (_destinationFocusNode.hasFocus) {
+      return _destinationController.text.trim();
+    }
+
+    return '';
+  }
+
+  bool get _isSearchActive {
+    return _navigationController.isReady && _activeSearchQuery.isNotEmpty;
+  }
+
+  List<DestinationModel> get _searchSuggestions {
+    if (!_isSearchActive) return const [];
+
+    return _navigationController.searchDestinations(
+      _activeSearchQuery,
+      limit: 4,
+    );
+  }
+
+  bool get _isPanelVisuallyExpanded {
+    return _isNavigationPanelExpanded || _isSearchActive;
   }
 
   bool get _showOngoingClassReminder {
     final currentClass = widget.ongoingClass;
 
     return _isRegisteredUser &&
-        !_isNavigationPanelExpanded &&
+        !_isPanelVisuallyExpanded &&
         currentClass != null &&
         currentClass.timetableId != _dismissedTimetableId;
   }
@@ -85,8 +122,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _navigationController = NavigationController()
+      ..addListener(_handleNavigationStateChanged);
+    _currentLocationController.addListener(_handleSearchTextChanged);
+    _destinationController.addListener(_handleSearchTextChanged);
     _currentLocationFocusNode.addListener(_handleLocationFocusChanged);
     _destinationFocusNode.addListener(_handleLocationFocusChanged);
+    unawaited(_loadNavigationGraph());
   }
 
   @override
@@ -112,9 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _setAccessibility(bool value) {
-    setState(() {
-      _isAccessibilityEnabled = value;
-    });
+    _navigationController.setAccessibleOnly(value);
   }
 
   void _closeDrawerThen(VoidCallback action) {
@@ -125,6 +165,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _selectFloor(String floor) {
     setState(() {
       _selectedFloor = floor;
+      _floorSelectionRequest++;
     });
   }
 
@@ -134,7 +175,96 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _handleNavigationStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _handleSearchTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _loadNavigationGraph() async {
+    await _navigationController.loadGraph();
+
+    if (!mounted || _navigationController.isReady) return;
+    _showMessage(
+      _navigationController.message ??
+          'CampusGO could not load its navigation locations.',
+    );
+  }
+
+  void _selectCurrentLocation(DestinationModel location) {
+    _currentLocationController.value = TextEditingValue(
+      text: location.name,
+      selection: TextSelection.collapsed(offset: location.name.length),
+    );
+    _navigationController.selectCurrentLocation(location);
+    _currentLocationFocusNode.unfocus();
+  }
+
+  void _selectDestination(DestinationModel destination) {
+    _destinationController.value = TextEditingValue(
+      text: destination.name,
+      selection: TextSelection.collapsed(offset: destination.name.length),
+    );
+    _navigationController.selectDestination(destination);
+    _destinationFocusNode.unfocus();
+  }
+
+  void _selectSearchSuggestion(DestinationModel suggestion) {
+    if (_currentLocationFocusNode.hasFocus) {
+      _selectCurrentLocation(suggestion);
+      return;
+    }
+
+    if (_destinationFocusNode.hasFocus) {
+      _selectDestination(suggestion);
+    }
+  }
+
+  void _startNavigation() {
+    _currentLocationFocusNode.unfocus();
+    _destinationFocusNode.unfocus();
+
+    final result = _navigationController.calculateRoute();
+    if (result == null) {
+      _showMessage(
+        _navigationController.message ??
+            'CampusGO could not calculate a route.',
+      );
+      return;
+    }
+
+    debugPrint('CampusGO route node IDs: ${result.nodeIds.join(' -> ')}');
+    debugPrint('CampusGO route edge IDs: ${result.edgeIds.join(' -> ')}');
+    debugPrint('CampusGO route total cost: ${result.totalCost}');
+
+    _collapseNavigationPanel();
+    _showMessage(
+      'Route ready: ${result.nodeIds.length} nodes, '
+      '${result.edgeIds.length} edges, '
+      'cost ${result.totalCost.toStringAsFixed(2)}.',
+    );
+  }
+
+  bool _ensureNavigationReady() {
+    if (_navigationController.isReady) return true;
+
+    _showMessage(
+      _navigationController.isLoadingGraph
+          ? 'Navigation locations are still loading.'
+          : _navigationController.message ??
+                'Navigation locations are unavailable.',
+    );
+    return false;
+  }
+
   void _handleCurrentLocationPressed() {
+    if (!_ensureNavigationReady()) return;
     _currentLocationFocusNode.requestFocus();
   }
 
@@ -149,6 +279,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleDestinationPressed() {
+    if (!_ensureNavigationReady()) return;
+
     if (!_isRegisteredUser || _isNavigationPanelExpanded) {
       _destinationFocusNode.requestFocus();
       return;
@@ -189,20 +321,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _navigationController
+      ..removeListener(_handleNavigationStateChanged)
+      ..dispose();
     _currentLocationFocusNode
       ..removeListener(_handleLocationFocusChanged)
       ..dispose();
-    _currentLocationController.dispose();
+    _currentLocationController
+      ..removeListener(_handleSearchTextChanged)
+      ..dispose();
     _destinationFocusNode
       ..removeListener(_handleLocationFocusChanged)
       ..dispose();
-    _destinationController.dispose();
+    _destinationController
+      ..removeListener(_handleSearchTextChanged)
+      ..dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
+    final isSearchActive = _isSearchActive;
+    final searchSuggestions = _searchSuggestions;
+    final isPanelVisuallyExpanded = _isPanelVisuallyExpanded;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -257,9 +399,20 @@ class _HomeScreenState extends State<HomeScreen> {
               final expandedPanelHeight = (constraints.maxHeight * 0.64)
                   .clamp(collapsedPanelHeight, constraints.maxHeight - 64)
                   .toDouble();
-              final panelHeight = _isNavigationPanelExpanded
+              final guestSearchRows = math.max(1, searchSuggestions.length);
+              final guestSearchMaximumHeight = math.max(
+                collapsedPanelHeight,
+                constraints.maxHeight - 64,
+              );
+              final guestSearchPanelHeight =
+                  (collapsedPanelHeight + 8 + (guestSearchRows * 58))
+                      .clamp(collapsedPanelHeight, guestSearchMaximumHeight)
+                      .toDouble();
+              final panelHeight = !isPanelVisuallyExpanded
+                  ? collapsedPanelHeight
+                  : _isRegisteredUser
                   ? expandedPanelHeight
-                  : collapsedPanelHeight;
+                  : guestSearchPanelHeight;
               final maximumSideBottom = math.max(
                 12.0,
                 constraints.maxHeight - 225,
@@ -274,7 +427,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   Positioned.fill(
                     child:
                         widget.mapContent ??
-                        HomeMapPlaceholder(selectedFloor: _selectedFloor),
+                        HomeSplineMap(
+                          selectedFloor: _selectedFloor,
+                          selectionRequest: _floorSelectionRequest,
+                        ),
                   ),
                   if (_showMapDismissLayer)
                     Positioned.fill(
@@ -347,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       curve: Curves.easeOutCubic,
                       height: panelHeight,
                       child: HomeNavigationPanel(
-                        isExpanded: _isNavigationPanelExpanded,
+                        isExpanded: isPanelVisuallyExpanded,
                         isRegisteredUser: _isRegisteredUser,
                         bottomSafeArea: bottomSafeArea,
                         ongoingClass: widget.ongoingClass,
@@ -358,12 +514,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         destinationFocusNode: _destinationFocusNode,
                         isDestinationEditable:
                             !_isRegisteredUser || _isNavigationPanelExpanded,
+                        isSearchActive: isSearchActive,
+                        searchSuggestions: searchSuggestions,
+                        onSearchSuggestionSelected: _selectSearchSuggestion,
+                        onCurrentLocationTextChanged:
+                            _navigationController.currentLocationTextChanged,
+                        onDestinationTextChanged:
+                            _navigationController.destinationTextChanged,
+                        canStartNavigation:
+                            _navigationController.canCalculateRoute,
+                        isNavigationLoading:
+                            _navigationController.isLoadingGraph,
                         onCurrentLocationPressed: _handleCurrentLocationPressed,
                         onQrPressed: () {
                           _collapseNavigationPanel();
                           _showMessage('QR checkpoint scanner opens here.');
                         },
                         onDestinationPressed: _handleDestinationPressed,
+                        onStartNavigationPressed: _startNavigation,
                         onDestinationSwipeUp: _handleDestinationSwipeUp,
                         onDestinationSwipeDown: _collapseNavigationPanel,
                         onBackgroundPressed: _collapseNavigationPanel,

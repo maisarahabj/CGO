@@ -26,6 +26,51 @@ class NodeModel {
   final String? tags;
   final bool isActive;
 
+  /// Name shown in search results and current-location labels.
+  ///
+  /// Most physical destinations have a human-readable `label`. The fallbacks
+  /// prevent an incomplete row from producing an empty label in the UI.
+  String get displayName {
+    final candidates = [label, description, nodeCode, nodeId];
+
+    for (final candidate in candidates) {
+      final value = candidate?.trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+
+    return nodeId;
+  }
+
+  /// Whether this node has a position that can later be sent to Spline.
+  bool get hasCoordinates => xCoord != null && yCoord != null && zCoord != null;
+
+  /// Only active, labelled nodes should be offered to the user as destinations.
+  /// Unlabelled junction nodes remain available to Dijkstra but stay out of
+  /// destination search results.
+  bool get isSearchableDestination =>
+      isActive && label != null && label!.trim().isNotEmpty;
+
+  /// Text used by the local destination filter.
+  String get searchableText => [
+    label,
+    nodeCode,
+    nodeType,
+    description,
+    tags,
+    floorId,
+  ].whereType<String>().join(' ').toLowerCase();
+
+  /// Matches every word typed by the user, regardless of word order.
+  bool matchesSearch(String query) {
+    final terms = query
+        .trim()
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .where((term) => term.isNotEmpty);
+
+    return terms.every(searchableText.contains);
+  }
+
   /// Converts a Supabase nodes row into a NodeModel.
   factory NodeModel.fromJson(Map<String, dynamic> json) {
     return NodeModel(
@@ -38,7 +83,7 @@ class NodeModel {
       xCoord: (json['x_coord'] as num?)?.toDouble(),
       yCoord: (json['y_coord'] as num?)?.toDouble(),
       zCoord: (json['z_coord'] as num?)?.toDouble(),
-      tags: json['tags'] as String?,
+      tags: json['tags']?.toString(),
       isActive: json['is_active'] as bool? ?? true,
     );
   }

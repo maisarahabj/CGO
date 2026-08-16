@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -7,6 +8,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../../app/app_routes.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
+import '../../navigation/controllers/navigation_controller.dart';
+import '../../navigation/models/destination_model.dart';
 import '../../profile/models/profile_model.dart';
 import '../models/ongoing_class_model.dart';
 import '../widgets/home_floor_selector.dart';
@@ -58,11 +61,15 @@ class _HomeScreenState extends State<HomeScreen> {
   final FocusNode _currentLocationFocusNode = FocusNode();
   final TextEditingController _destinationController = TextEditingController();
   final FocusNode _destinationFocusNode = FocusNode();
+  late final NavigationController _navigationController;
   String _selectedFloor = 'L8';
   int _floorSelectionRequest = 0;
-  bool _isAccessibilityEnabled = true;
   bool _isNavigationPanelExpanded = false;
   String? _dismissedTimetableId;
+
+  bool get _isAccessibilityEnabled {
+    return _navigationController.accessibleOnly;
+  }
 
   bool get _isRegisteredUser {
     return widget.accessMode == HomeAccessMode.registeredUser;
@@ -86,8 +93,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _navigationController = NavigationController()
+      ..addListener(_handleNavigationStateChanged);
     _currentLocationFocusNode.addListener(_handleLocationFocusChanged);
     _destinationFocusNode.addListener(_handleLocationFocusChanged);
+    unawaited(_loadNavigationGraph());
   }
 
   @override
@@ -113,9 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _setAccessibility(bool value) {
-    setState(() {
-      _isAccessibilityEnabled = value;
-    });
+    _navigationController.setAccessibleOnly(value);
   }
 
   void _closeDrawerThen(VoidCallback action) {
@@ -136,7 +144,78 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _handleNavigationStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _loadNavigationGraph() async {
+    await _navigationController.loadGraph();
+
+    if (!mounted || _navigationController.isReady) return;
+    _showMessage(
+      _navigationController.message ??
+          'CampusGO could not load its navigation locations.',
+    );
+  }
+
+  Iterable<DestinationModel> _searchLocations(TextEditingValue value) {
+    if (!_navigationController.isReady) {
+      return const <DestinationModel>[];
+    }
+
+    return _navigationController.searchDestinations(value.text);
+  }
+
+  void _selectCurrentLocation(DestinationModel location) {
+    _navigationController.selectCurrentLocation(location);
+    _currentLocationFocusNode.unfocus();
+  }
+
+  void _selectDestination(DestinationModel destination) {
+    _navigationController.selectDestination(destination);
+    _destinationFocusNode.unfocus();
+  }
+
+  void _startNavigation() {
+    _currentLocationFocusNode.unfocus();
+    _destinationFocusNode.unfocus();
+
+    final result = _navigationController.calculateRoute();
+    if (result == null) {
+      _showMessage(
+        _navigationController.message ?? 'CampusGO could not calculate a route.',
+      );
+      return;
+    }
+
+    debugPrint('CampusGO route node IDs: ${result.nodeIds.join(' -> ')}');
+    debugPrint('CampusGO route edge IDs: ${result.edgeIds.join(' -> ')}');
+    debugPrint('CampusGO route total cost: ${result.totalCost}');
+
+    _collapseNavigationPanel();
+    _showMessage(
+      'Route ready: ${result.nodeIds.length} nodes, '
+      '${result.edgeIds.length} edges, '
+      'cost ${result.totalCost.toStringAsFixed(2)}.',
+    );
+  }
+
+  bool _ensureNavigationReady() {
+    if (_navigationController.isReady) return true;
+
+    _showMessage(
+      _navigationController.isLoadingGraph
+          ? 'Navigation locations are still loading.'
+          : _navigationController.message ??
+                'Navigation locations are unavailable.',
+    );
+    return false;
+  }
+
   void _handleCurrentLocationPressed() {
+    if (!_ensureNavigationReady()) return;
     _currentLocationFocusNode.requestFocus();
   }
 
@@ -151,6 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleDestinationPressed() {
+    if (!_ensureNavigationReady()) return;
+
     if (!_isRegisteredUser || _isNavigationPanelExpanded) {
       _destinationFocusNode.requestFocus();
       return;
@@ -191,6 +272,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _navigationController
+      ..removeListener(_handleNavigationStateChanged)
+      ..dispose();
     _currentLocationFocusNode
       ..removeListener(_handleLocationFocusChanged)
       ..dispose();
@@ -363,12 +447,25 @@ class _HomeScreenState extends State<HomeScreen> {
                         destinationFocusNode: _destinationFocusNode,
                         isDestinationEditable:
                             !_isRegisteredUser || _isNavigationPanelExpanded,
+                        currentLocationOptionsBuilder: _searchLocations,
+                        destinationOptionsBuilder: _searchLocations,
+                        onCurrentLocationSelected: _selectCurrentLocation,
+                        onDestinationSelected: _selectDestination,
+                        onCurrentLocationTextChanged:
+                            _navigationController.currentLocationTextChanged,
+                        onDestinationTextChanged:
+                            _navigationController.destinationTextChanged,
+                        canStartNavigation:
+                            _navigationController.canCalculateRoute,
+                        isNavigationLoading:
+                            _navigationController.isLoadingGraph,
                         onCurrentLocationPressed: _handleCurrentLocationPressed,
                         onQrPressed: () {
                           _collapseNavigationPanel();
                           _showMessage('QR checkpoint scanner opens here.');
                         },
                         onDestinationPressed: _handleDestinationPressed,
+                        onStartNavigationPressed: _startNavigation,
                         onDestinationSwipeUp: _handleDestinationSwipeUp,
                         onDestinationSwipeDown: _collapseNavigationPanel,
                         onBackgroundPressed: _collapseNavigationPanel,

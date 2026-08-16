@@ -1,4 +1,4 @@
-/// Ordered output that will be produced by Dijkstra in the next stage.
+/// Ordered output produced by Dijkstra and stored in navigation state.
 ///
 /// Node IDs are used for instruction and marker calculations. Edge IDs are
 /// sent to Spline so that the matching route objects become visible.

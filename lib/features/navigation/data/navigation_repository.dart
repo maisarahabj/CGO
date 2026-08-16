@@ -103,6 +103,26 @@ class NavigationRepository {
     );
   }
 
+  /// Creates the graph snapshot that may be passed to Dijkstra.
+  ///
+  /// The controller loads the complete active graph from Supabase once. When
+  /// accessibility mode changes, this method filters that already-loaded edge
+  /// list in memory instead of downloading the same floors and nodes again.
+  NavigationGraphData graphForRouting({
+    required NavigationGraphData graph,
+    required bool accessibleOnly,
+  }) {
+    if (!accessibleOnly) return graph;
+
+    return NavigationGraphData(
+      floors: graph.floors,
+      nodes: graph.nodes,
+      edges: graph.edges
+          .where((edge) => edge.isAccessible)
+          .toList(growable: false),
+    );
+  }
+
   /// Resolves a QR or manually selected node ID to one active node.
   Future<NodeModel?> findActiveNodeById(String nodeId) async {
     final normalizedId = nodeId.trim();

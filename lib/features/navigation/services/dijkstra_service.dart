@@ -26,11 +26,7 @@ class DijkstraService {
     }
 
     if (start == destination) {
-      return RouteResult(
-        nodeIds: [start],
-        edgeIds: const [],
-        totalCost: 0,
-      );
+      return RouteResult(nodeIds: [start], edgeIds: const [], totalCost: 0);
     }
 
     final adjacencyList = _buildAdjacencyList(graph);

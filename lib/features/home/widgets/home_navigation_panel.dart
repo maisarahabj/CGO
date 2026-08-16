@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_assets.dart';
+import '../../navigation/models/destination_model.dart';
 import '../models/ongoing_class_model.dart';
 import 'home_location_fields.dart';
 
@@ -16,9 +17,18 @@ class HomeNavigationPanel extends StatelessWidget {
     required this.destinationController,
     required this.destinationFocusNode,
     required this.isDestinationEditable,
+    required this.currentLocationOptionsBuilder,
+    required this.destinationOptionsBuilder,
+    required this.onCurrentLocationSelected,
+    required this.onDestinationSelected,
+    required this.onCurrentLocationTextChanged,
+    required this.onDestinationTextChanged,
+    required this.canStartNavigation,
+    required this.isNavigationLoading,
     required this.onCurrentLocationPressed,
     required this.onQrPressed,
     required this.onDestinationPressed,
+    required this.onStartNavigationPressed,
     required this.onDestinationSwipeUp,
     required this.onDestinationSwipeDown,
     required this.onBackgroundPressed,
@@ -38,9 +48,19 @@ class HomeNavigationPanel extends StatelessWidget {
   final TextEditingController destinationController;
   final FocusNode destinationFocusNode;
   final bool isDestinationEditable;
+  final AutocompleteOptionsBuilder<DestinationModel>
+      currentLocationOptionsBuilder;
+  final AutocompleteOptionsBuilder<DestinationModel> destinationOptionsBuilder;
+  final AutocompleteOnSelected<DestinationModel> onCurrentLocationSelected;
+  final AutocompleteOnSelected<DestinationModel> onDestinationSelected;
+  final ValueChanged<String> onCurrentLocationTextChanged;
+  final ValueChanged<String> onDestinationTextChanged;
+  final bool canStartNavigation;
+  final bool isNavigationLoading;
   final VoidCallback onCurrentLocationPressed;
   final VoidCallback onQrPressed;
   final VoidCallback onDestinationPressed;
+  final VoidCallback onStartNavigationPressed;
   final VoidCallback onDestinationSwipeUp;
   final VoidCallback onDestinationSwipeDown;
   final VoidCallback onBackgroundPressed;
@@ -86,9 +106,18 @@ class HomeNavigationPanel extends StatelessWidget {
                   destinationController: destinationController,
                   destinationFocusNode: destinationFocusNode,
                   isDestinationEditable: isDestinationEditable,
+                  currentLocationOptionsBuilder: currentLocationOptionsBuilder,
+                  destinationOptionsBuilder: destinationOptionsBuilder,
+                  onCurrentLocationSelected: onCurrentLocationSelected,
+                  onDestinationSelected: onDestinationSelected,
+                  onCurrentLocationTextChanged: onCurrentLocationTextChanged,
+                  onDestinationTextChanged: onDestinationTextChanged,
+                  canStartNavigation: canStartNavigation,
+                  isNavigationLoading: isNavigationLoading,
                   onCurrentLocationPressed: onCurrentLocationPressed,
                   onQrPressed: onQrPressed,
                   onDestinationPressed: onDestinationPressed,
+                  onStartNavigationPressed: onStartNavigationPressed,
                   onDestinationSwipeUp: onDestinationSwipeUp,
                   onDestinationSwipeDown: onDestinationSwipeDown,
                 ),

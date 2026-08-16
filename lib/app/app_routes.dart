@@ -11,6 +11,7 @@ abstract final class AppRoutes {
   static const String settings = '/settings';
   static const String support = '/support';
   static const String editProfile = '/profile/edit';
+  static const String qrScanner = '/navigation/qr-scanner';
 
   static const String adminNotifications = '/admin/notifications';
   static const String adminBookingRequests = '/admin/booking-requests';

@@ -430,6 +430,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         HomeSplineMap(
                           selectedFloor: _selectedFloor,
                           selectionRequest: _floorSelectionRequest,
+                          visibleRouteEdgeIds:
+                              _navigationController.routeResult?.edgeIds.toSet() ??
+                              const <String>{},
+                          routeStartNode:
+                              _navigationController.routeResult == null
+                              ? null
+                              : _navigationController.currentLocation?.node,
+                          routeDestinationNode:
+                              _navigationController.routeResult == null
+                              ? null
+                              : _navigationController.destination?.node,
                         ),
                   ),
                   if (_showMapDismissLayer)
@@ -528,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onCurrentLocationPressed: _handleCurrentLocationPressed,
                         onQrPressed: () {
                           _collapseNavigationPanel();
-                          _showMessage('QR checkpoint scanner opens here.');
+                          Navigator.of(context).pushNamed(AppRoutes.qrScanner);
                         },
                         onDestinationPressed: _handleDestinationPressed,
                         onStartNavigationPressed: _startNavigation,

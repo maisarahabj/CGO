@@ -9,11 +9,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../navigation/models/node_model.dart';
+
 class HomeSplineMap extends StatefulWidget {
   const HomeSplineMap({
     required this.selectedFloor,
     required this.selectionRequest,
     this.visibleRouteEdgeIds = const <String>{},
+    this.routeStartNode,
+    this.routeDestinationNode,
     super.key,
   });
 
@@ -29,6 +33,11 @@ class HomeSplineMap extends StatefulWidget {
   /// Each value must exactly match an edge_id in Supabase and an object name
   /// in Spline, for example E_GN0_GN1.
   final Set<String> visibleRouteEdgeIds;
+
+  /// Endpoints are sent to Spline only while a calculated route is active.
+  /// Their coordinates position the Spline-owned route marker groups.
+  final NodeModel? routeStartNode;
+  final NodeModel? routeDestinationNode;
 
   @override
   State<HomeSplineMap> createState() => _HomeSplineMapState();
@@ -93,54 +102,37 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     const canvas = document.getElementById('canvas3d');
     const spline = new Application(canvas);
 
+    const routeBaseState = 'Base State';
+    const routeVisibleState = 'ROUTE_VISIBLE';
+    const startMarkerName = 'ROUTE_START_MARKER';
+    const destinationMarkerName = 'ROUTE_DESTINATION_MARKER';
+
     function sendToFlutter(message) {
       if (window.SplineBridge) {
         window.SplineBridge.postMessage(message);
       }
     }
 
-    /*
-     * Tracks the route edges that this WebView has already made visible.
-     * Spline itself still starts every edge in its hidden Base State.
-     */
     const visibleRouteEdges = new Set();
 
     function findRouteEdge(edgeId) {
-      const edgeObject = spline.findObjectByName(edgeId);
-
-      if (!edgeObject) {
-        sendToFlutter('missing-edge:' + edgeId);
-        return null;
-      }
-
-      return edgeObject;
+      return spline.findObjectByName(edgeId);
     }
 
-    function showRouteEdge(edgeId) {
-      const edgeObject = findRouteEdge(edgeId);
-
-      if (!edgeObject) {
+    function setRouteEdgeState(edgeObject, stateName) {
+      try {
+        /*
+         * Assigning the state directly is deterministic. It does not depend
+         * on the previous Key Down animation being reversible.
+         */
+        edgeObject.state = stateName;
+        return true;
+      } catch (error) {
+        sendToFlutter(
+          'route-error:' + edgeObject.name + ': ' + String(error)
+        );
         return false;
       }
-
-      /*
-       * Run the Key Down transition configured on this specific Spline edge:
-       * Base State (0% opacity) -> ROUTE_VISIBLE (100% opacity).
-       */
-      spline.emitEvent('keyDown', edgeObject.uuid);
-      return true;
-    }
-
-    function hideRouteEdge(edgeId) {
-      const edgeObject = findRouteEdge(edgeId);
-
-      if (!edgeObject) {
-        return false;
-      }
-
-      /* Reverse the transition so the edge returns to its hidden Base State. */
-      spline.emitEventReverse('keyDown', edgeObject.uuid);
-      return true;
     }
 
     window.setRouteEdges = function(edgeIds) {
@@ -149,29 +141,100 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         return false;
       }
 
-      const requestedEdges = new Set(edgeIds);
+      const requestedEdges = new Set(
+        edgeIds
+          .map(function(edgeId) {
+            return String(edgeId).trim();
+          })
+          .filter(function(edgeId) {
+            return edgeId.length > 0;
+          })
+      );
 
-      /* Hide edges that are not part of the newly requested route. */
-      Array.from(visibleRouteEdges).forEach(function(currentEdge) {
-        if (!requestedEdges.has(currentEdge)) {
-          hideRouteEdge(currentEdge);
-          visibleRouteEdges.delete(currentEdge);
+      /*
+       * Reset every Spline route-edge object before showing the new route.
+       * This also clears an edge that was made visible by a manual R-key test
+       * and was therefore never recorded in visibleRouteEdges.
+       */
+      spline.getAllObjects().forEach(function(object) {
+        if (object.name && object.name.startsWith('E_')) {
+          setRouteEdgeState(object, routeBaseState);
         }
       });
 
-      /* Show only edges that are new to the requested route. */
+      visibleRouteEdges.clear();
+
+      const missingEdges = [];
+
+      /* Show only the edges belonging to the latest RouteResult. */
       requestedEdges.forEach(function(requestedEdge) {
-        if (!visibleRouteEdges.has(requestedEdge)) {
-          if (showRouteEdge(requestedEdge)) {
-            visibleRouteEdges.add(requestedEdge);
-          }
+        const edgeObject = findRouteEdge(requestedEdge);
+
+        if (!edgeObject) {
+          missingEdges.push(requestedEdge);
+          return;
+        }
+
+        if (setRouteEdgeState(edgeObject, routeVisibleState)) {
+          visibleRouteEdges.add(requestedEdge);
         }
       });
+
+      spline.requestRender();
 
       sendToFlutter(
         'route-updated:' + Array.from(visibleRouteEdges).join(',')
       );
 
+      /* Send missing IDs last so route-updated cannot erase the error. */
+      missingEdges.forEach(function(edgeId) {
+        sendToFlutter('missing-edge:' + edgeId);
+      });
+
+      return true;
+    };
+
+    function updateRouteMarker(markerName, endpoint) {
+      const marker = spline.findObjectByName(markerName);
+
+      if (!marker) {
+        sendToFlutter('missing-marker:' + markerName);
+        return false;
+      }
+
+      if (endpoint === null) {
+        marker.hide();
+        sendToFlutter('marker-hidden:' + markerName);
+        return true;
+      }
+
+      const coordinates = [endpoint.x, endpoint.y, endpoint.z];
+      const hasValidCoordinates = coordinates.every(Number.isFinite);
+
+      if (!hasValidCoordinates) {
+        marker.hide();
+        sendToFlutter('marker-error:' + endpoint.nodeId);
+        return false;
+      }
+
+      marker.position.x = endpoint.x;
+      marker.position.y = endpoint.y;
+      marker.position.z = endpoint.z;
+      marker.show();
+
+      sendToFlutter(
+        'marker-positioned:' +
+          markerName + ':' + endpoint.nodeId + ':' +
+          endpoint.x + ',' + endpoint.y + ',' + endpoint.z
+      );
+      return true;
+    }
+
+    window.setRouteEndpoints = function(startEndpoint, destinationEndpoint) {
+      updateRouteMarker(startMarkerName, startEndpoint);
+      updateRouteMarker(destinationMarkerName, destinationEndpoint);
+      spline.requestRender();
+      sendToFlutter('markers-updated');
       return true;
     };
 
@@ -225,6 +288,14 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     spline
       .load('$_sceneUrl')
       .then(function() {
+        const startMarker = spline.findObjectByName(startMarkerName);
+        const destinationMarker = spline.findObjectByName(
+          destinationMarkerName
+        );
+
+        if (startMarker) startMarker.hide();
+        if (destinationMarker) destinationMarker.hide();
+        spline.requestRender();
         sendToFlutter('ready');
       })
       .catch(function(error) {
@@ -268,12 +339,24 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         unawaited(_sendRouteEdges());
       }
     }
+
+    final startChanged =
+        oldWidget.routeStartNode?.nodeId != widget.routeStartNode?.nodeId;
+    final destinationChanged =
+        oldWidget.routeDestinationNode?.nodeId !=
+        widget.routeDestinationNode?.nodeId;
+
+    if ((startChanged || destinationChanged) && _isSplineReady) {
+      unawaited(_sendRouteEndpoints());
+    }
   }
 
   void _handleSplineMessage(JavaScriptMessage message) {
     if (!mounted) return;
 
     final value = message.message;
+
+    debugPrint('SplineBridge received: $value');
 
     if (value == 'ready') {
       setState(() {
@@ -284,6 +367,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
       unawaited(_sendPendingFloor());
       unawaited(_sendRouteEdges());
+      unawaited(_sendRouteEndpoints());
       return;
     }
 
@@ -326,6 +410,30 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       setState(() {
         _loadError = 'Spline could not find the route edge "$edgeId".';
       });
+      return;
+    }
+
+    if (value.startsWith('missing-marker:')) {
+      final markerName = value.substring('missing-marker:'.length);
+      debugPrint(
+        'Spline route marker "$markerName" has not been added to the scene.',
+      );
+      return;
+    }
+
+    if (value.startsWith('marker-error:')) {
+      final nodeId = value.substring('marker-error:'.length);
+      debugPrint('Spline route marker has invalid coordinates for $nodeId.');
+      return;
+    }
+
+    if (value.startsWith('marker-hidden:') ||
+        value.startsWith('marker-positioned:')) {
+      // The full message has already been printed by the debugPrint above.
+      return;
+    }
+
+    if (value == 'markers-updated') {
       return;
     }
 
@@ -397,6 +505,8 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     // deterministic and easier to inspect while debugging.
     final edgeIds = widget.visibleRouteEdgeIds.toList()..sort();
 
+    debugPrint('Spline route sending: ${jsonEncode(edgeIds)}');
+
     try {
       await _controller.runJavaScript(
         'window.setRouteEdges(${jsonEncode(edgeIds)});',
@@ -406,6 +516,58 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
       setState(() {
         _loadError = 'Unable to display the route: $error';
+      });
+    }
+  }
+
+  Map<String, Object>? _encodeRouteEndpoint(NodeModel? node) {
+    if (node == null) return null;
+
+    if (!node.hasCoordinates) {
+      debugPrint(
+        'Spline route marker skipped because ${node.nodeId} has no complete '
+        'coordinates.',
+      );
+      return null;
+    }
+
+    return <String, Object>{
+      'nodeId': node.nodeId,
+      'x': node.xCoord!,
+      'y': node.yCoord!,
+      'z': node.zCoord!,
+    };
+  }
+
+  Future<void> _sendRouteEndpoints() async {
+    if (!_isSplineReady) return;
+
+    final start = _encodeRouteEndpoint(widget.routeStartNode);
+    final destination = _encodeRouteEndpoint(widget.routeDestinationNode);
+
+    // Treat the endpoint markers as one pair. If either node has missing
+    // coordinates, hide both instead of leaving only one marker visible.
+    final hasCompleteEndpointPair = start != null && destination != null;
+    final startPayload = hasCompleteEndpointPair ? start : null;
+    final destinationPayload = hasCompleteEndpointPair ? destination : null;
+
+    debugPrint(
+      'Spline route endpoints sending: '
+      'start=${jsonEncode(startPayload)}, '
+      'destination=${jsonEncode(destinationPayload)}',
+    );
+
+    try {
+      await _controller.runJavaScript(
+        'window.setRouteEndpoints('
+        '${jsonEncode(startPayload)}, ${jsonEncode(destinationPayload)}'
+        ');',
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadError = 'Unable to position the route markers: $error';
       });
     }
   }

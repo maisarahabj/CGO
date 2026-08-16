@@ -8,6 +8,7 @@ import '../features/bookings/views/admin_manage_bookings_screen.dart';
 import '../features/home/views/guest_home_screen.dart';
 import '../features/home/views/user_home_screen.dart';
 import '../features/navigation/views/admin_manage_navigation_screen.dart';
+import '../features/navigation/views/qr_scanner_screen.dart';
 import '../features/notifications/views/admin_manage_notifications_screen.dart';
 import '../features/notifications/views/notifications_screen.dart';
 import '../features/profile/views/admin_manage_users_screen.dart';
@@ -96,6 +97,12 @@ abstract final class AppRouter {
 
             return AuthGate(authController: authController);
           },
+        );
+
+      case AppRoutes.qrScanner:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const QrScannerScreen(),
         );
 
       case AppRoutes.adminNotifications:

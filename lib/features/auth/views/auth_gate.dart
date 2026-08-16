@@ -17,16 +17,22 @@ class AuthGate extends StatelessWidget {
     return AnimatedBuilder(
       animation: authController,
       builder: (context, _) {
-        if (authController.isLoading) {
+        // Keep LoginScreen mounted while a login attempt is in progress.
+        // Only show the full loading screen when an authenticated session exists.
+        if (authController.isLoading && authController.hasSession) {
           return const _AuthLoadingScreen();
         }
 
         return switch (authController.role) {
-          UserRole.guest => LoginScreen(authController: authController),
-          UserRole.user => UserHomeScreen(authController: authController),
+          UserRole.guest => LoginScreen(
+              authController: authController,
+            ),
+          UserRole.user => UserHomeScreen(
+              authController: authController,
+            ),
           UserRole.admin => AdminDashboardScreen(
-            authController: authController,
-          ),
+              authController: authController,
+            ),
         };
       },
     );
@@ -38,6 +44,10 @@ class _AuthLoadingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
   }
 }

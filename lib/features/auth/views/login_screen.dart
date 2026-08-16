@@ -53,12 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _showForgotPasswordDialog() async {
-    final resetEmailController = TextEditingController(
-      text: _emailController.text.trim(),
-    );
+    String resetEmail = _emailController.text.trim();
     final resetFormKey = GlobalKey<FormState>();
 
-    final shouldSend = await showDialog<bool>(
+    final submittedEmail = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
@@ -66,25 +64,31 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Form(
             key: resetFormKey,
             child: TextFormField(
-              controller: resetEmailController,
+              initialValue: resetEmail,
               keyboardType: TextInputType.emailAddress,
               autofillHints: const [AutofillHints.email],
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               decoration: const InputDecoration(
                 labelText: 'Email',
-                hintText: 'name@example.com',
+                hintText: 'B01@student.unimy.my',
               ),
               validator: _validateEmail,
+              onChanged: (value) {
+                resetEmail = value.trim();
+              },
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
               onPressed: () {
                 if (resetFormKey.currentState!.validate()) {
-                  Navigator.of(dialogContext).pop(true);
+                  Navigator.of(dialogContext).pop(resetEmail.trim());
                 }
               },
               child: const Text('Send email'),
@@ -94,15 +98,13 @@ class _LoginScreenState extends State<LoginScreen> {
       },
     );
 
-    if (shouldSend != true || !mounted) {
-      resetEmailController.dispose();
+    if (!mounted || submittedEmail == null || submittedEmail.isEmpty) {
       return;
     }
 
-    final email = resetEmailController.text;
-    resetEmailController.dispose();
-
-    final didSend = await widget.authController.sendPasswordResetEmail(email);
+    final didSend = await widget.authController.sendPasswordResetEmail(
+      submittedEmail,
+    );
 
     if (!mounted) {
       return;
@@ -110,9 +112,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
     _showMessage(
       didSend
-          ? 'Password-reset instructions were sent to your email.'
-          : widget.authController.errorMessage ??
-                'The password-reset email could not be sent.',
+          ? 'If an account exists for this email, password-reset instructions have been sent.'
+          : 'Password-reset request could not be processed. Please try again.',
       isError: !didSend,
     );
   }
@@ -136,19 +137,42 @@ class _LoginScreenState extends State<LoginScreen> {
       );
   }
 
+  // ------------------------------------------------------------
+  // CAMPUSGO EMAIL VALIDATION
+  // ------------------------------------------------------------
   static String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
 
+    // Required field.
     if (email.isEmpty) {
       return 'Please enter your email.';
     }
 
+    // First check normal email structure.
     final looksLikeEmail = RegExp(
       r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
     ).hasMatch(email);
 
     if (!looksLikeEmail) {
       return 'Please enter a valid email address.';
+    }
+
+    // CampusGO only accepts official UNIMY email domains.
+    final normalizedEmail = email.toLowerCase();
+
+    final isStudentEmail =
+        normalizedEmail.endsWith('@student.unimy.my');
+
+    final isLecturerEmail =
+        normalizedEmail.endsWith('@unimy.my');
+
+    final isAdminEmail =
+        normalizedEmail.endsWith('@admin.unimy.my');
+
+    if (!isStudentEmail &&
+        !isLecturerEmail &&
+        !isAdminEmail) {
+      return 'Please use a valid UNIMY email address.';
     }
 
     return null;
@@ -175,9 +199,11 @@ class _LoginScreenState extends State<LoginScreen> {
               builder: (context, constraints) {
                 final keyboardIsOpen =
                     MediaQuery.viewInsetsOf(context).bottom > 0;
+
                 final canvasHeight = constraints.maxHeight < 720
                     ? 780.0
                     : constraints.maxHeight;
+
                 final panelHeight = (canvasHeight * 0.55)
                     .clamp(500.0, 560.0)
                     .toDouble();
@@ -189,13 +215,18 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _LoginBackground(assetPath: AppAssets.loginBackground),
+                        _LoginBackground(
+                          assetPath: AppAssets.loginBackground,
+                        ),
                         const DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Color(0x170B2942)],
+                              colors: [
+                                Colors.transparent,
+                                Color(0x170B2942),
+                              ],
                               stops: [0.56, 1],
                             ),
                           ),
@@ -203,7 +234,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         Align(
                           alignment: Alignment.bottomCenter,
                           child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 620),
+                            constraints: const BoxConstraints(
+                              maxWidth: 620,
+                            ),
                             child: Container(
                               height: panelHeight,
                               padding: const EdgeInsets.fromLTRB(
@@ -216,7 +249,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: const Color(
                                   0xFFF9FCFF,
                                 ).withValues(alpha: 0.92),
-                                borderRadius: const BorderRadius.vertical(
+                                borderRadius:
+                                    const BorderRadius.vertical(
                                   top: Radius.circular(48),
                                 ),
                               ),
@@ -231,8 +265,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                       children: [
                                         const _CampusGoBrand(),
                                         const SizedBox(height: 16),
+
                                         _LoginTextField(
-                                          controller: _emailController,
+                                          controller:
+                                              _emailController,
                                           hintText: 'Email',
                                           keyboardType:
                                               TextInputType.emailAddress,
@@ -240,24 +276,34 @@ class _LoginScreenState extends State<LoginScreen> {
                                             AutofillHints.username,
                                             AutofillHints.email,
                                           ],
-                                          validator: _validateEmail,
-                                          textInputAction: TextInputAction.next,
+                                          validator:
+                                              _validateEmail,
+                                          textInputAction:
+                                              TextInputAction.next,
                                         ),
+
                                         const SizedBox(height: 16),
+
                                         _LoginTextField(
-                                          controller: _passwordController,
+                                          controller:
+                                              _passwordController,
                                           hintText: 'Password',
-                                          obscureText: _obscurePassword,
+                                          obscureText:
+                                              _obscurePassword,
                                           autofillHints: const [
                                             AutofillHints.password,
                                           ],
-                                          validator: _validatePassword,
-                                          textInputAction: TextInputAction.done,
-                                          onFieldSubmitted: (_) => _signIn(),
+                                          validator:
+                                              _validatePassword,
+                                          textInputAction:
+                                              TextInputAction.done,
+                                          onFieldSubmitted:
+                                              (_) => _signIn(),
                                           suffixIcon: IconButton(
-                                            tooltip: _obscurePassword
-                                                ? 'Show password'
-                                                : 'Hide password',
+                                            tooltip:
+                                                _obscurePassword
+                                                    ? 'Show password'
+                                                    : 'Hide password',
                                             onPressed: () {
                                               setState(() {
                                                 _obscurePassword =
@@ -267,30 +313,41 @@ class _LoginScreenState extends State<LoginScreen> {
                                             icon: Icon(
                                               _obscurePassword
                                                   ? Icons
-                                                        .visibility_off_outlined
-                                                  : Icons.visibility_outlined,
-                                              color: const Color(0xFF6C6C73),
+                                                      .visibility_off_outlined
+                                                  : Icons
+                                                      .visibility_outlined,
+                                              color:
+                                                  const Color(
+                                                0xFF6C6C73,
+                                              ),
                                             ),
                                           ),
                                         ),
+
                                         SizedBox(
                                           height: 44,
                                           child: TextButton(
-                                            onPressed:
-                                                widget.authController.isLoading
+                                            onPressed: widget
+                                                    .authController
+                                                    .isLoading
                                                 ? null
                                                 : _showForgotPasswordDialog,
-                                            style: TextButton.styleFrom(
-                                              foregroundColor: const Color(
+                                            style:
+                                                TextButton.styleFrom(
+                                              foregroundColor:
+                                                  const Color(
                                                 0xFF4A057E,
                                               ),
                                               padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                  ),
-                                              textStyle: const TextStyle(
+                                                  const EdgeInsets
+                                                      .symmetric(
+                                                horizontal: 6,
+                                              ),
+                                              textStyle:
+                                                  const TextStyle(
                                                 fontSize: 17,
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight:
+                                                    FontWeight.w600,
                                               ),
                                             ),
                                             child: const Text(
@@ -298,16 +355,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                             ),
                                           ),
                                         ),
+
                                         _GradientSignInButton(
-                                          isLoading:
-                                              widget.authController.isLoading,
+                                          isLoading: widget
+                                              .authController
+                                              .isLoading,
                                           onPressed: _signIn,
                                         ),
+
                                         const SizedBox(height: 14),
+
                                         GuestAccessButton(
-                                          isEnabled:
-                                              !widget.authController.isLoading,
-                                          onPressed: _continueAsGuest,
+                                          isEnabled: !widget
+                                              .authController
+                                              .isLoading,
+                                          onPressed:
+                                              _continueAsGuest,
                                         ),
                                       ],
                                     ),
@@ -347,7 +410,11 @@ class _LoginBackground extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFFBCECF1), Color(0xFF8ED9E5), Color(0xFFE7F8F8)],
+              colors: [
+                Color(0xFFBCECF1),
+                Color(0xFF8ED9E5),
+                Color(0xFFE7F8F8),
+              ],
             ),
           ),
           child: Center(
@@ -415,11 +482,15 @@ class _CampusGoBrand extends StatelessWidget {
                       children: const [
                         TextSpan(
                           text: 'Campus',
-                          style: TextStyle(color: Color(0xFF3D36A3)),
+                          style: TextStyle(
+                            color: Color(0xFF3D36A3),
+                          ),
                         ),
                         TextSpan(
                           text: 'GO',
-                          style: TextStyle(color: Color(0xFFFF0000)),
+                          style: TextStyle(
+                            color: Color(0xFFFF0000),
+                          ),
                         ),
                       ],
                     ),
@@ -450,7 +521,9 @@ class _CampusGoBrand extends StatelessWidget {
                             color: Color(0xFFE31B23),
                           ),
                         ),
-                        TextSpan(text: ' Navigation App'),
+                        TextSpan(
+                          text: ' Navigation App',
+                        ),
                       ],
                     ),
                   ),
@@ -491,16 +564,24 @@ class _LoginTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      autovalidateMode:
+          AutovalidateMode.onUserInteraction,
       keyboardType: keyboardType,
       autofillHints: autofillHints,
       textInputAction: textInputAction,
       obscureText: obscureText,
       onFieldSubmitted: onFieldSubmitted,
       validator: validator,
-      style: const TextStyle(color: Color(0xFF25252B), fontSize: 18),
+      style: const TextStyle(
+        color: Color(0xFF25252B),
+        fontSize: 18,
+      ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: Color(0xFFB8B8BD), fontSize: 19),
+        hintStyle: const TextStyle(
+          color: Color(0xFFB8B8BD),
+          fontSize: 19,
+        ),
         errorMaxLines: 2,
         filled: true,
         fillColor: const Color(0xFFFDFDFE),
@@ -510,20 +591,41 @@ class _LoginTextField extends StatelessWidget {
         ),
         suffixIcon: suffixIcon,
         enabledBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(color: Color(0xFF0077C8), width: 1.4),
+          borderRadius: BorderRadius.all(
+            Radius.circular(32),
+          ),
+          borderSide: BorderSide(
+            color: Color(0xFF0077C8),
+            width: 1.4,
+          ),
         ),
         focusedBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(color: Color(0xFF4A057E), width: 2),
+          borderRadius: BorderRadius.all(
+            Radius.circular(32),
+          ),
+          borderSide: BorderSide(
+            color: Color(0xFF4A057E),
+            width: 2,
+          ),
         ),
         errorBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(color: Color(0xFFB3261E), width: 1.5),
+          borderRadius: BorderRadius.all(
+            Radius.circular(32),
+          ),
+          borderSide: BorderSide(
+            color: Color(0xFFB3261E),
+            width: 1.5,
+          ),
         ),
-        focusedErrorBorder: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(32)),
-          borderSide: BorderSide(color: Color(0xFFB3261E), width: 2),
+        focusedErrorBorder:
+            const OutlineInputBorder(
+          borderRadius: BorderRadius.all(
+            Radius.circular(32),
+          ),
+          borderSide: BorderSide(
+            color: Color(0xFFB3261E),
+            width: 2,
+          ),
         ),
       ),
     );
@@ -545,7 +647,11 @@ class _GradientSignInButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(32),
         gradient: const LinearGradient(
-          colors: [Color(0xFF3235BD), Color(0xFF7D2C87), Color(0xFFFF2A0A)],
+          colors: [
+            Color(0xFF3235BD),
+            Color(0xFF7D2C87),
+            Color(0xFFFF2A0A),
+          ],
         ),
         boxShadow: const [
           BoxShadow(
@@ -562,7 +668,8 @@ class _GradientSignInButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: FilledButton.styleFrom(
             backgroundColor: Colors.transparent,
-            disabledBackgroundColor: Colors.transparent,
+            disabledBackgroundColor:
+                Colors.transparent,
             shadowColor: Colors.transparent,
             shape: const StadiumBorder(),
           ),

@@ -357,15 +357,20 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   }
 
   void _handleNavigate(TimetableModel entry) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            'Navigation to ${entry.roomName ?? 'this room'} '
-            'will connect to the navigation feature.',
+    final nodeId = entry.roomNodeId?.trim();
+
+    if (nodeId == null || nodeId.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Navigation is not available for this room.'),
           ),
-        ),
-      );
+        );
+
+      return;
+    }
+
+    Navigator.of(context).pushNamed(AppRoutes.userHome, arguments: nodeId);
   }
 }

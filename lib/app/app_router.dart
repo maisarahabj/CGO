@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../features/timetable/views/my_schedule_screen.dart';
+import '../features/bookings/views/bookings_screen.dart';
 import '../features/admin/views/admin_dashboard_screen.dart';
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/auth/models/user_role.dart';
@@ -20,6 +21,7 @@ import '../features/support/views/privacy_legal_help_screen.dart';
 import '../features/support/views/support_screen.dart';
 import '../features/timetable/views/admin_manage_timetable_screen.dart';
 import '../features/timetable/views/timetable_screen.dart';
+import '../features/support/views/issue_report_screen.dart';
 import 'app_routes.dart';
 import '../features/settings/views/about_screen.dart';
 import '../features/settings/views/privacy_policy_screen.dart';
@@ -47,10 +49,17 @@ abstract final class AppRouter {
         );
 
       case AppRoutes.userHome:
+        final initialDestinationNodeId = settings.arguments is String
+            ? (settings.arguments as String).trim()
+            : null;
+
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => authController.role == UserRole.user
-              ? UserHomeScreen(authController: authController)
+              ? UserHomeScreen(
+                  authController: authController,
+                  initialDestinationNodeId: initialDestinationNodeId,
+                )
               : AuthGate(authController: authController),
         );
 
@@ -113,7 +122,13 @@ abstract final class AppRouter {
           settings: settings,
           builder: (_) => const SupportScreen(),
         );
-
+      case AppRoutes.issueReport:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => authController.role == UserRole.user
+              ? const IssueReportScreen()
+              : AuthGate(authController: authController),
+        );
       case AppRoutes.editProfile:
         return MaterialPageRoute<void>(
           settings: settings,
@@ -152,6 +167,14 @@ abstract final class AppRouter {
           settings: settings,
           authController: authController,
           screen: const AdminManageTimetableScreen(),
+        );
+
+      case AppRoutes.bookings:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => authController.role == UserRole.user
+              ? const BookingsScreen()
+              : AuthGate(authController: authController),
         );
 
       case AppRoutes.adminMapManagement:

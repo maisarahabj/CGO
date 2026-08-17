@@ -32,10 +32,14 @@ class HomeScreen extends StatefulWidget {
     this.mapContent,
     this.unreadNotificationCount = 0,
     this.onNotificationRefresh,
+    this.initialDestinationNodeId,
     super.key,
   });
 
   final HomeAccessMode accessMode;
+
+  /// Optional navigation destination supplied by another feature,
+  /// such as Timetable -> Navigate Now.
 
   /// Logs out a registered user or returns a guest to the login screen.
   final Future<void> Function() onSessionAction;
@@ -54,8 +58,8 @@ class HomeScreen extends StatefulWidget {
 
   final int unreadNotificationCount;
 
-  final Future<void> Function()?
-      onNotificationRefresh;
+  final Future<void> Function()? onNotificationRefresh;
+  final String? initialDestinationNodeId;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -75,6 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _floorSelectionRequest = 0;
   bool _isNavigationPanelExpanded = false;
   String? _dismissedTimetableId;
+  bool _initialDestinationApplied = false;
 
   bool get _isAccessibilityEnabled {
     return _navigationController.accessibleOnly;
@@ -351,11 +356,63 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadNavigationGraph() async {
     await _navigationController.loadGraph();
 
-    if (!mounted || _navigationController.isReady) return;
-    _showMessage(
-      _navigationController.message ??
-          'CampusGO could not load its navigation locations.',
-    );
+    if (!mounted) {
+      return;
+    }
+
+    if (!_navigationController.isReady) {
+      _showMessage(
+        _navigationController.message ??
+            'CampusGO could not load its navigation locations.',
+      );
+      return;
+    }
+
+    _applyInitialDestination();
+  }
+
+  void _applyInitialDestination() {
+    if (_initialDestinationApplied) {
+      return;
+    }
+
+    _initialDestinationApplied = true;
+
+    final requestedNodeId = widget.initialDestinationNodeId?.trim();
+
+    if (requestedNodeId == null || requestedNodeId.isEmpty) {
+      return;
+    }
+
+    DestinationModel? destination;
+
+    for (final item in _navigationController.destinations) {
+      if (item.nodeId == requestedNodeId) {
+        destination = item;
+        break;
+      }
+    }
+
+    if (destination == null) {
+      _showMessage('Navigation is not available for this room.');
+      return;
+    }
+
+    _selectDestination(destination);
+
+    if (_isRegisteredUser) {
+      setState(() {
+        _isNavigationPanelExpanded = true;
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _currentLocationFocusNode.requestFocus();
+    });
   }
 
   Future<void> _handleQrPressed() async {
@@ -550,9 +607,8 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFFE8E8E8),
         drawerScrimColor: const Color(0x3D000000),
         drawer: CampusNavigationDrawer(
-          unreadNotificationCount:
-        widget.unreadNotificationCount,
-        isRegisteredUser: _isRegisteredUser,
+          unreadNotificationCount: widget.unreadNotificationCount,
+          isRegisteredUser: _isRegisteredUser,
           profile: widget.profile,
           onProfilePressed: _isRegisteredUser
               ? () {
@@ -567,9 +623,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             navigator.pop();
 
-            await navigator.pushNamed(
-              AppRoutes.notifications,
-            );
+            await navigator.pushNamed(AppRoutes.notifications);
 
             if (mounted) {
               await widget.onNotificationRefresh?.call();

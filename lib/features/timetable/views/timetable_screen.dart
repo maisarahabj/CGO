@@ -890,38 +890,65 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _navigateToRoom() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            'Navigation to '
-            '${_controller.selectedRoomName} '
-            'will connect to the navigation feature.',
+    final selectedRoom = _controller.selectedRoomName?.trim();
+
+    if (selectedRoom == null || selectedRoom.isEmpty) {
+      return;
+    }
+
+    String? nodeId;
+
+    for (final entry in _controller.entries) {
+      final roomName = entry.roomName?.trim();
+
+      final candidateNodeId = entry.roomNodeId?.trim();
+
+      if (roomName != null &&
+          roomName.toLowerCase() == selectedRoom.toLowerCase() &&
+          candidateNodeId != null &&
+          candidateNodeId.isNotEmpty) {
+        nodeId = candidateNodeId;
+        break;
+      }
+    }
+
+    if (nodeId == null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Navigation is not available for this room.'),
           ),
-        ),
-      );
+        );
+
+      return;
+    }
+
+    if (widget.guestMode) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Guest navigation connection is being finalised.'),
+          ),
+        );
+
+      return;
+    }
+
+    Navigator.of(context).pushNamed(AppRoutes.userHome, arguments: nodeId);
   }
 
   void _bookRoom() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Room booking will connect to the booking feature.'),
-        ),
-      );
-  }
+  Navigator.of(context).pushNamed(
+    AppRoutes.bookings,
+    arguments: _controller.selectedRoomName,
+  );
+}
 
-  void _openBookings() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Your Bookings will connect to the booking feature.'),
-        ),
-      );
-  }
+void _openBookings() {
+  Navigator.of(context).pushNamed(AppRoutes.bookings);
+}
 
   String _shortDay(String day) {
     switch (day) {

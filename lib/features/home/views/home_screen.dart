@@ -724,8 +724,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: hasActiveRoute
                             ? HomeRouteSummaryPanel(
                                 key: const ValueKey('route-summary-panel'),
-                                destination: activeDestination!,
-                                routeResult: activeRoute!,
+                                destination: activeDestination,
+                                routeResult: activeRoute,
                                 bottomSafeArea: bottomSafeArea,
                                 onClosePressed: _endNavigation,
                               )

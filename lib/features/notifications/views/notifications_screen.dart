@@ -8,119 +8,88 @@ import '../widgets/notification_tile.dart';
 import '../widgets/unread_notification_badge.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({
-    super.key,
-  });
+  const NotificationsScreen({super.key});
 
   @override
-  State<NotificationsScreen> createState() =>
-      _NotificationsScreenState();
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState
-    extends State<NotificationsScreen> {
-  late final NotificationController
-      _notificationController;
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  late final NotificationController _controller;
 
   @override
   void initState() {
     super.initState();
 
-    _notificationController =
-        NotificationController();
+    _controller = NotificationController();
 
-    unawaited(
-      _notificationController.loadNotifications(),
-    );
+    unawaited(_controller.loadNotifications());
   }
 
   @override
   void dispose() {
-    _notificationController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _openNotification(
-    NotificationModel notification,
-  ) async {
+  Future<void> _openNotification(NotificationModel notification) async {
     if (!notification.isRead) {
-      final didUpdate =
-          await _notificationController.markAsRead(
-        notification,
-      );
+      final success = await _controller.markAsRead(notification);
 
-      if (!didUpdate && mounted) {
-        _showMessage(
-          _notificationController.errorMessage ??
-              'Notification could not be updated.',
-          isError: true,
-        );
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                _controller.errorMessage ?? 'Unable to update notification.',
+              ),
+            ),
+          );
       }
     }
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return _NotificationDetailsSheet(
-          notification: notification,
-        );
+        return _NotificationDetailsSheet(notification: notification);
       },
     );
-  }
-
-  void _showMessage(
-    String message, {
-    required bool isError,
-  }) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: isError
-              ? const Color(0xFFB3261E)
-              : const Color(0xFF276749),
-        ),
-      );
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _notificationController,
+      animation: _controller,
       builder: (context, _) {
         return Scaffold(
-          backgroundColor:
-              const Color(0xFFF7F9FB),
+          backgroundColor: const Color(0xFFF7F9FB),
 
           appBar: AppBar(
             backgroundColor: Colors.white,
-            elevation: 0,
             surfaceTintColor: Colors.white,
-            foregroundColor:
-                const Color(0xFF303030),
+            elevation: 0,
 
             leading: IconButton(
               tooltip: 'Back',
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-              ),
               onPressed: () {
                 Navigator.of(context).pop();
               },
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF1E1E1E),
+              ),
             ),
 
             title: const Text(
               'Notifications',
               style: TextStyle(
                 fontFamily: 'Raleway',
-                fontSize: 23,
+                fontSize: 22,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF38358E),
               ),
@@ -130,13 +99,10 @@ class _NotificationsScreenState
 
             actions: [
               Padding(
-                padding:
-                    const EdgeInsets.only(right: 16),
+                padding: const EdgeInsets.only(right: 20),
                 child: Center(
                   child: UnreadNotificationBadge(
-                    count:
-                        _notificationController
-                            .unreadCount,
+                    count: _controller.unreadCount,
                   ),
                 ),
               ),
@@ -150,36 +116,22 @@ class _NotificationsScreenState
   }
 
   Widget _buildBody() {
-    if (_notificationController.isLoading &&
-        !_notificationController
-            .hasNotifications) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+    if (_controller.isLoading && !_controller.hasNotifications) {
+      return const Center(child: CircularProgressIndicator());
     }
 
-    if (_notificationController.errorMessage !=
-            null &&
-        !_notificationController
-            .hasNotifications) {
+    if (_controller.errorMessage != null && !_controller.hasNotifications) {
       return _ErrorState(
-        message:
-            _notificationController.errorMessage!,
-        onRetry:
-            _notificationController
-                .loadNotifications,
+        message: _controller.errorMessage!,
+        onRetry: _controller.loadNotifications,
       );
     }
 
-    if (!_notificationController
-        .hasNotifications) {
+    if (!_controller.hasNotifications) {
       return RefreshIndicator(
-        onRefresh:
-            _notificationController
-                .loadNotifications,
+        onRefresh: _controller.loadNotifications,
         child: const CustomScrollView(
-          physics:
-              AlwaysScrollableScrollPhysics(),
+          physics: AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverFillRemaining(
               hasScrollBody: false,
@@ -190,23 +142,15 @@ class _NotificationsScreenState
       );
     }
 
-    final notifications =
-        _notificationController.notifications;
+    final notifications = _controller.notifications;
 
     return RefreshIndicator(
-      onRefresh:
-          _notificationController
-              .loadNotifications,
+      onRefresh: _controller.loadNotifications,
       child: ListView.separated(
-        physics:
-            const AlwaysScrollableScrollPhysics(),
-        padding:
-            const EdgeInsets.symmetric(
-          vertical: 12,
-        ),
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         itemCount: notifications.length,
-        separatorBuilder:
-            (context, index) {
+        separatorBuilder: (_, __) {
           return const Divider(
             height: 1,
             thickness: 1,
@@ -215,15 +159,12 @@ class _NotificationsScreenState
           );
         },
         itemBuilder: (context, index) {
-          final notification =
-              notifications[index];
+          final notification = notifications[index];
 
           return NotificationTile(
             notification: notification,
             onTap: () {
-              _openNotification(
-                notification,
-              );
+              _openNotification(notification);
             },
           );
         },
@@ -232,11 +173,8 @@ class _NotificationsScreenState
   }
 }
 
-class _NotificationDetailsSheet
-    extends StatelessWidget {
-  const _NotificationDetailsSheet({
-    required this.notification,
-  });
+class _NotificationDetailsSheet extends StatelessWidget {
+  const _NotificationDetailsSheet({required this.notification});
 
   final NotificationModel notification;
 
@@ -246,32 +184,22 @@ class _NotificationDetailsSheet
       top: false,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(
-          24,
-          14,
-          24,
-          32,
-        ),
+        padding: const EdgeInsets.fromLTRB(24, 14, 24, 32),
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(30),
-          ),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
                 width: 42,
                 height: 5,
                 decoration: BoxDecoration(
-                  color:
-                      const Color(0xFFD2D2D2),
-                  borderRadius:
-                      BorderRadius.circular(10),
+                  color: const Color(0xFFD2D2D2),
+                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
             ),
@@ -279,22 +207,17 @@ class _NotificationDetailsSheet
             const SizedBox(height: 26),
 
             Row(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
               children: [
                 Container(
                   width: 48,
                   height: 48,
-                  decoration:
-                      const BoxDecoration(
-                    color:
-                        Color(0xFFE7F3FA),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE7F3FA),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
                     Icons.notifications_none_rounded,
-                    color:
-                        Color(0xFF2A77B4),
+                    color: Color(0xFF2A77B4),
                   ),
                 ),
 
@@ -305,11 +228,9 @@ class _NotificationDetailsSheet
                     notification.displayTitle,
                     style: const TextStyle(
                       fontFamily: 'Raleway',
-                      fontSize: 22,
-                      fontWeight:
-                          FontWeight.w800,
-                      color:
-                          Color(0xFF252525),
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF252525),
                     ),
                   ),
                 ),
@@ -330,17 +251,14 @@ class _NotificationDetailsSheet
               ),
             ),
 
-            if (notification.notificationType !=
-                null) ...[
-              const SizedBox(height: 24),
-
+            if (notification.notificationType != null) ...[
+              const SizedBox(height: 22),
               Text(
                 'Type: ${notification.notificationType}',
                 style: const TextStyle(
                   fontFamily: 'Roboto',
                   fontSize: 13,
-                  color:
-                      Color(0xFF858585),
+                  color: Color(0xFF858585),
                 ),
               ),
             ],
@@ -351,23 +269,16 @@ class _NotificationDetailsSheet
               width: double.infinity,
               height: 50,
               child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF38358E),
+                  shape: const StadiumBorder(),
+                ),
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      const Color(0xFF38358E),
-                  shape:
-                      const StadiumBorder(),
-                ),
                 child: const Text(
                   'Close',
-                  style: TextStyle(
-                    fontFamily: 'Raleway',
-                    fontSize: 16,
-                    fontWeight:
-                        FontWeight.w700,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -378,35 +289,28 @@ class _NotificationDetailsSheet
   }
 }
 
-class _EmptyNotificationState
-    extends StatelessWidget {
+class _EmptyNotificationState extends StatelessWidget {
   const _EmptyNotificationState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 88,
               height: 88,
-              decoration:
-                  const BoxDecoration(
-                color:
-                    Color(0xFFEAF4FA),
+              decoration: const BoxDecoration(
+                color: Color(0xFFEAF4FA),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
-                Icons
-                    .notifications_none_rounded,
+                Icons.notifications_none_rounded,
                 size: 44,
-                color:
-                    Color(0xFF2A77B4),
+                color: Color(0xFF2A77B4),
               ),
             ),
 
@@ -417,10 +321,8 @@ class _EmptyNotificationState
               style: TextStyle(
                 fontFamily: 'Raleway',
                 fontSize: 21,
-                fontWeight:
-                    FontWeight.w800,
-                color:
-                    Color(0xFF38358E),
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF38358E),
               ),
             ),
 
@@ -433,8 +335,7 @@ class _EmptyNotificationState
                 fontFamily: 'Roboto',
                 fontSize: 15,
                 height: 1.4,
-                color:
-                    Color(0xFF777777),
+                color: Color(0xFF777777),
               ),
             ),
           ],
@@ -445,10 +346,7 @@ class _EmptyNotificationState
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.message,
-    required this.onRetry,
-  });
+  const _ErrorState({required this.message, required this.onRetry});
 
   final String message;
   final Future<void> Function() onRetry;
@@ -457,31 +355,19 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.all(30),
+        padding: const EdgeInsets.all(30),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(
               Icons.error_outline_rounded,
               size: 52,
-              color:
-                  Color(0xFFB3261E),
+              color: Color(0xFFB3261E),
             ),
 
             const SizedBox(height: 16),
 
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: 'Roboto',
-                fontSize: 15,
-                color:
-                    Color(0xFF555555),
-              ),
-            ),
+            Text(message, textAlign: TextAlign.center),
 
             const SizedBox(height: 20),
 
@@ -489,9 +375,7 @@ class _ErrorState extends StatelessWidget {
               onPressed: () {
                 onRetry();
               },
-              child: const Text(
-                'Try Again',
-              ),
+              child: const Text('Try Again'),
             ),
           ],
         ),

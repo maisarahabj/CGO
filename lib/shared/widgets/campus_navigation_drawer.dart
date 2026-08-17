@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../features/profile/models/profile_model.dart';
+import '../../features/notifications/widgets/unread_notification_badge.dart';
 
 class CampusNavigationDrawer extends StatelessWidget {
   const CampusNavigationDrawer({
@@ -16,6 +17,7 @@ class CampusNavigationDrawer extends StatelessWidget {
     required this.onAccessibilityChanged,
     required this.onHelpPressed,
     required this.onSessionAction,
+    this.unreadNotificationCount = 0,
     this.onProfilePressed,
     this.profile,
     super.key,
@@ -30,6 +32,7 @@ class CampusNavigationDrawer extends StatelessWidget {
   final ValueChanged<bool> onAccessibilityChanged;
   final VoidCallback onHelpPressed;
   final Future<void> Function() onSessionAction;
+  final int unreadNotificationCount;
   final VoidCallback? onProfilePressed;
 
   @override
@@ -65,7 +68,11 @@ class CampusNavigationDrawer extends StatelessWidget {
                       title: 'Notification',
                       iconAsset: AppAssets.drawerNotification,
                       onTap: onNotificationPressed,
+                      trailing: UnreadNotificationBadge(
+                        count: unreadNotificationCount,
+                      ),
                     ),
+
                     const _InsetDivider(horizontalMargin: 28),
                     _DrawerMenuItem(
                       title: 'Timetable',
@@ -367,6 +374,7 @@ class _DrawerMenuItem extends StatelessWidget {
     required this.iconAsset,
     required this.onTap,
     this.description,
+    this.trailing,
     this.trailingBelow,
     this.verticalPadding = 14,
   });
@@ -375,6 +383,7 @@ class _DrawerMenuItem extends StatelessWidget {
   final String? description;
   final String iconAsset;
   final VoidCallback onTap;
+  final Widget? trailing;
   final Widget? trailingBelow;
   final double verticalPadding;
 
@@ -444,6 +453,7 @@ class _DrawerMenuItem extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
             ],
           ),
         ),

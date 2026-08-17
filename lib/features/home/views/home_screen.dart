@@ -28,6 +28,8 @@ class HomeScreen extends StatefulWidget {
     this.ongoingClass,
     this.nextClasses = const [],
     this.mapContent,
+    this.unreadNotificationCount = 0,
+    this.onNotificationRefresh,
     super.key,
   });
 
@@ -47,6 +49,11 @@ class HomeScreen extends StatefulWidget {
 
   /// Pass the real Spline or floor-map widget here when it is ready.
   final Widget? mapContent;
+
+  final int unreadNotificationCount;
+
+  final Future<void> Function()?
+      onNotificationRefresh;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -358,7 +365,9 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: const Color(0xFFE8E8E8),
         drawerScrimColor: const Color(0x3D000000),
         drawer: CampusNavigationDrawer(
-          isRegisteredUser: _isRegisteredUser,
+          unreadNotificationCount:
+        widget.unreadNotificationCount,
+        isRegisteredUser: _isRegisteredUser,
           profile: widget.profile,
           onProfilePressed: _isRegisteredUser
               ? () {
@@ -368,10 +377,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               : null,
           isAccessibilityEnabled: _isAccessibilityEnabled,
-          onNotificationPressed: () {
-            _closeDrawerThen(() {
-              Navigator.of(context).pushNamed(AppRoutes.notifications);
-            });
+          onNotificationPressed: () async {
+            final navigator = Navigator.of(context);
+
+            navigator.pop();
+
+            await navigator.pushNamed(
+              AppRoutes.notifications,
+            );
+
+            if (mounted) {
+              await widget.onNotificationRefresh?.call();
+            }
           },
           onTimetablePressed: () {
             _closeDrawerThen(() {

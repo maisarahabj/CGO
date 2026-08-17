@@ -26,7 +26,7 @@ import 'app_routes.dart';
 import '../features/settings/views/about_screen.dart';
 import '../features/settings/views/privacy_policy_screen.dart';
 import '../features/settings/views/terms_of_use_screen.dart';
-
+import '../features/support/views/admin_manage_faq_screen.dart';
 export 'app_routes.dart';
 
 abstract final class AppRouter {
@@ -200,6 +200,12 @@ abstract final class AppRouter {
           settings: settings,
           authController: authController,
           screen: const AdminManageIssueReportsScreen(),
+        );
+      case AppRoutes.adminFaq:
+        return _adminRoute(
+          settings: settings,
+          authController: authController,
+          screen: const AdminManageFaqScreen(),
         );
 
       case AppRoutes.adminQrCheckpoints:

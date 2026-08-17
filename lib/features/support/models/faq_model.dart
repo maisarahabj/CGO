@@ -1,4 +1,3 @@
-// TODO: Map this model to the exact columns in public.faq.
 class FaqModel {
   const FaqModel({
     required this.faqId,
@@ -8,6 +7,7 @@ class FaqModel {
     required this.targetRole,
     required this.displayOrder,
     required this.isPublished,
+    this.createdBy,
   });
 
   final String faqId;
@@ -17,6 +17,7 @@ class FaqModel {
   final String targetRole;
   final int displayOrder;
   final bool isPublished;
+  final String? createdBy;
 
   factory FaqModel.fromJson(Map<String, dynamic> json) {
     return FaqModel(
@@ -29,6 +30,29 @@ class FaqModel {
           ? (json['display_order'] as num).toInt()
           : 0,
       isPublished: json['is_published'] as bool? ?? false,
+      createdBy: json['created_by']?.toString(),
+    );
+  }
+
+  FaqModel copyWith({
+    String? faqId,
+    String? category,
+    String? question,
+    String? answer,
+    String? targetRole,
+    int? displayOrder,
+    bool? isPublished,
+    String? createdBy,
+  }) {
+    return FaqModel(
+      faqId: faqId ?? this.faqId,
+      category: category ?? this.category,
+      question: question ?? this.question,
+      answer: answer ?? this.answer,
+      targetRole: targetRole ?? this.targetRole,
+      displayOrder: displayOrder ?? this.displayOrder,
+      isPublished: isPublished ?? this.isPublished,
+      createdBy: createdBy ?? this.createdBy,
     );
   }
 }

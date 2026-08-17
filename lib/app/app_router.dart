@@ -44,10 +44,17 @@ abstract final class AppRouter {
         );
 
       case AppRoutes.userHome:
+        final initialDestinationNodeId = settings.arguments is String
+            ? (settings.arguments as String).trim()
+            : null;
+
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => authController.role == UserRole.user
-              ? UserHomeScreen(authController: authController)
+              ? UserHomeScreen(
+                  authController: authController,
+                  initialDestinationNodeId: initialDestinationNodeId,
+                )
               : AuthGate(authController: authController),
         );
 

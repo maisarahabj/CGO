@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../features/bookings/views/bookings_screen.dart';
 import '../features/admin/views/admin_dashboard_screen.dart';
 import '../features/auth/controllers/auth_controller.dart';
 import '../features/auth/models/user_role.dart';
@@ -18,6 +19,7 @@ import '../features/support/views/privacy_legal_help_screen.dart';
 import '../features/support/views/support_screen.dart';
 import '../features/timetable/views/admin_manage_timetable_screen.dart';
 import '../features/timetable/views/timetable_screen.dart';
+
 import 'app_routes.dart';
 
 export 'app_routes.dart';
@@ -119,6 +121,14 @@ abstract final class AppRouter {
           screen: const AdminManageTimetableScreen(),
         );
 
+      case AppRoutes.bookings:
+  return MaterialPageRoute<void>(
+    settings: settings,
+    builder: (_) => authController.role == UserRole.user
+        ? const BookingsScreen()
+        : AuthGate(authController: authController),
+  );
+
       case AppRoutes.adminMapManagement:
         return _adminRoute(
           settings: settings,
@@ -136,6 +146,8 @@ abstract final class AppRouter {
             pageTitle: 'Route Management',
           ),
         );
+      
+      
 
       case AppRoutes.adminIssueReports:
         return _adminRoute(

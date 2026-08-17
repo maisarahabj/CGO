@@ -1,4 +1,3 @@
-// TODO: Manage all-bookings state and admin actions through BookingService.
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
 import '../models/booking_status.dart';

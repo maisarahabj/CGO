@@ -1,18 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../controllers/booking_controller.dart';
+import '../services/booking_service.dart';
 import '../widgets/booking_card.dart';
 import 'create_booking_screen.dart';
 
 /// Matches Figma "17 Users book a room" screen.
-class BookingsScreen extends StatefulWidget {
+///
+/// Reachable only for role == UserRole.user (see app_router.dart), so by
+/// the time this screen builds, a real logged-in non-guest user is
+/// guaranteed — the guard happens at the router, not in here.
+///
+/// Wraps its own locally-scoped BookingController (this app doesn't use a
+/// global Provider tree; other screens get their data the same
+/// self-contained way), built from the real Supabase auth user id.
+class BookingsScreen extends StatelessWidget {
   const BookingsScreen({super.key});
 
   @override
-  State<BookingsScreen> createState() => _BookingsScreenState();
+  Widget build(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser!.id;
+    return ChangeNotifierProvider(
+      create: (_) => BookingController(BookingService(Supabase.instance.client), userId),
+      child: const _BookingsScreenBody(),
+    );
+  }
 }
 
-class _BookingsScreenState extends State<BookingsScreen> {
+class _BookingsScreenBody extends StatefulWidget {
+  const _BookingsScreenBody();
+
+  @override
+  State<_BookingsScreenBody> createState() => _BookingsScreenState();
+}
+
+class _BookingsScreenState extends State<_BookingsScreenBody> {
   bool _bookingsExpanded = true;
   bool _historyExpanded = true;
 

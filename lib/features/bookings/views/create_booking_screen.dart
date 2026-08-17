@@ -285,7 +285,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                                 borderRadius: BorderRadius.circular(52),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.48),
+                                    color: Colors.black.withValues(alpha: 0.48),
                                     blurRadius: 7.1,
                                     offset: const Offset(0, 4),
                                   ),
@@ -398,7 +398,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
         color: Colors.white,
         border: Border.all(color: _borderBlue),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.11), blurRadius: 4, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.11), blurRadius: 4, offset: const Offset(0, 4))],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       child: DropdownButtonHideUnderline(
@@ -443,7 +443,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
                   color: selected ? Colors.white : Colors.transparent,
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: selected
-                      ? [BoxShadow(color: Colors.black.withOpacity(0.11), blurRadius: 4, offset: const Offset(0, 4))]
+                      ? [BoxShadow(color: Colors.black.withValues(alpha: 0.11), blurRadius: 4, offset: const Offset(0, 4))]
                       : null,
                 ),
                 child: FittedBox(
@@ -508,7 +508,7 @@ class _PillField extends StatelessWidget {
         color: Colors.white,
         border: Border.all(color: const Color(0xFF2A77B4)),
         borderRadius: BorderRadius.circular(30),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.11), blurRadius: 4, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.11), blurRadius: 4, offset: const Offset(0, 4))],
       ),
       child: Text(
         text,
@@ -538,7 +538,7 @@ class _PillButton extends StatelessWidget {
           color: Colors.white,
           border: Border.all(color: const Color(0xFF2A77B4)),
           borderRadius: BorderRadius.circular(30),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.11), blurRadius: 4, offset: const Offset(0, 4))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.11), blurRadius: 4, offset: const Offset(0, 4))],
         ),
         child: Row(
           children: [

@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import '../models/booking_model.dart';
-import '../models/booking_status.dart';
 import '../services/booking_service.dart';
 
 /// Holds the current user's booking list + loading/error state.

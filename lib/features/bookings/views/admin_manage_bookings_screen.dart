@@ -1,22 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../controllers/admin_booking_controller.dart';
 import '../models/booking_model.dart';
 import '../models/booking_status.dart';
+import '../services/booking_service.dart';
 
 /// Admin-only screen: review pending booking requests, approve or reject
 /// them (with an optional reason). Filter chips let admin view by status.
 /// Styled consistently with the rest of the bookings feature (same blue
 /// borders, pill buttons) even though there's no Figma for this screen yet.
-class AdminManageBookingsScreen extends StatefulWidget {
+///
+/// Reachable only for role == UserRole.admin — app_router.dart guards this
+/// before the screen is ever built, same as every other admin_* screen, so
+/// no auth params are needed in the constructor.
+///
+/// Wraps its own locally-scoped AdminBookingController (this app doesn't
+/// use a global Provider tree — each screen that needs one builds it
+/// itself, same pattern as BookingsScreen).
+class AdminManageBookingsScreen extends StatelessWidget {
   const AdminManageBookingsScreen({super.key});
 
   @override
-  State<AdminManageBookingsScreen> createState() => _AdminManageBookingsScreenState();
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => AdminBookingController(BookingService(Supabase.instance.client)),
+      child: const _AdminManageBookingsBody(),
+    );
+  }
 }
 
-class _AdminManageBookingsScreenState extends State<AdminManageBookingsScreen> {
+class _AdminManageBookingsBody extends StatefulWidget {
+  const _AdminManageBookingsBody();
+
+  @override
+  State<_AdminManageBookingsBody> createState() => _AdminManageBookingsScreenState();
+}
+
+class _AdminManageBookingsScreenState extends State<_AdminManageBookingsBody> {
   static const _borderBlue = Color(0xFF2A77B4);
 
   @override

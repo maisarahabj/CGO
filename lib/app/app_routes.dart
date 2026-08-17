@@ -22,4 +22,6 @@ abstract final class AppRoutes {
   static const String adminQrCheckpoints = '/admin/qr-checkpoints';
   static const String adminUserProfiles = '/admin/user-profiles';
   static const String privacyLegalHelp = '/privacy-legal-help';
+
+  static const String bookings = '/bookings';
 }

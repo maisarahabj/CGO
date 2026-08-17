@@ -17,8 +17,13 @@ dependencies:
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.16.0
   flutter_svg: ^2.3.0
+  provider: ^6.1.5+1
+  intl: ^0.20.3
+  uuid: ^4.6.0
   webview_flutter: ^4.13.1
   mobile_scanner: ^7.4.0
+  webview_windows: ^0.2.0           # For Windows desktop support
+  image_picker: ^1.2.3
 
 dev_dependencies:
   flutter_test:

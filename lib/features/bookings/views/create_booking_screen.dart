@@ -4,18 +4,36 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../controllers/booking_controller.dart';
 import '../models/booking_model.dart';
 import '../models/booking_status.dart';
+import '../services/booking_service.dart';
 
 /// Matches Figma "18 User book a room 2" exactly: pill-shaped white inputs
 /// with #2A77B4 borders and drop shadow, custom segmented Session Type
 /// control, gradient Submit button (#2B38A7 -> #FF2B00).
-class CreateBookingScreen extends StatefulWidget {
+///
+/// Self-contained: builds its own locally-scoped BookingController, since
+/// this screen can be pushed via Navigator.push (a sibling route), which
+/// falls outside BookingsScreen's own provider subtree.
+class CreateBookingScreen extends StatelessWidget {
   const CreateBookingScreen({super.key});
 
   @override
-  State<CreateBookingScreen> createState() => _CreateBookingScreenState();
+  Widget build(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser!.id;
+    return ChangeNotifierProvider(
+      create: (_) => BookingController(BookingService(Supabase.instance.client), userId),
+      child: const _CreateBookingScreenBody(),
+    );
+  }
 }
 
-class _CreateBookingScreenState extends State<CreateBookingScreen> {
+class _CreateBookingScreenBody extends StatefulWidget {
+  const _CreateBookingScreenBody();
+
+  @override
+  State<_CreateBookingScreenBody> createState() => _CreateBookingScreenState();
+}
+
+class _CreateBookingScreenState extends State<_CreateBookingScreenBody> {
   final _formKey = GlobalKey<FormState>();
   final _additionalInfoController = TextEditingController();
 
@@ -54,10 +72,7 @@ class _CreateBookingScreenState extends State<CreateBookingScreen> {
         _isLoadingRooms = false;
       });
     } catch (e) {
-      setState(() {
-        _roomsError = 'Could not load rooms. Please try again.';
-        _isLoadingRooms = false;
-      });
+      setState(() => _roomsError = 'Could not load rooms. Please try again.');
     }
   }
 

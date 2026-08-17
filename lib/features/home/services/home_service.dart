@@ -11,32 +11,46 @@ class HomeService {
 
   final SupabaseClient _client;
 
-  /// Returns the class in progress and the user's remaining classes today.
+  /// Returns the class currently in progress and the user's
+  /// remaining saved classes for today.
   Future<HomeScheduleSnapshot> loadTodaySchedule({
     required String userId,
     DateTime? now,
   }) async {
-    if (userId.trim().isEmpty) return const HomeScheduleSnapshot();
+    if (userId.trim().isEmpty) {
+      return const HomeScheduleSnapshot();
+    }
 
     final currentTime = now ?? DateTime.now();
+
     final scheduleRows = await _client
         .from(DatabaseTables.mySchedule)
         .select('timetable_id')
         .eq('user_id', userId);
 
     final timetableIds = scheduleRows
-        .map((row) => row['timetable_id'] as String?)
-        .whereType<String>()
+        .map<int?>((row) {
+          final rawValue = row['timetable_id'];
+
+          if (rawValue is num) {
+            return rawValue.toInt();
+          }
+
+          return int.tryParse(rawValue?.toString().trim() ?? '');
+        })
+        .whereType<int>()
         .toSet()
         .toList();
 
-    if (timetableIds.isEmpty) return const HomeScheduleSnapshot();
+    if (timetableIds.isEmpty) {
+      return const HomeScheduleSnapshot();
+    }
 
     final timetableRows = await _client
         .from(DatabaseTables.timetable)
         .select(
-          'timetable_id, room_node_id, room_name, subject_name, day, '
-          'start_time, end_time',
+          'timetable_id, room_node_id, room_name, '
+          'subject_name, day, start_time, end_time',
         )
         .inFilter('timetable_id', timetableIds);
 
@@ -44,10 +58,15 @@ class HomeService {
 
     for (final rawRow in timetableRows) {
       final row = Map<String, dynamic>.from(rawRow);
-      if (!_isSameWeekday(row['day'], currentTime.weekday)) continue;
+
+      if (!_isSameWeekday(row['day'], currentTime.weekday)) {
+        continue;
+      }
 
       final startMinutes = _timeToMinutes(row['start_time']);
+
       final endMinutes = _timeToMinutes(row['end_time']);
+
       final timetableId = row['timetable_id']?.toString().trim();
 
       if (startMinutes == null ||
@@ -71,14 +90,19 @@ class HomeService {
     );
 
     final nowMinutes = currentTime.hour * 60 + currentTime.minute;
+
     OngoingClassModel? ongoingClass;
+
     final nextClasses = <OngoingClassModel>[];
 
     for (final timedRow in todayRows) {
       final isOngoing = timedRow.isOngoingAt(nowMinutes);
+
       final isUpcoming = timedRow.startsAfter(nowMinutes);
 
-      if (!isOngoing && !isUpcoming) continue;
+      if (!isOngoing && !isUpcoming) {
+        continue;
+      }
 
       final classModel = await _createClassModel(timedRow);
 
@@ -95,12 +119,13 @@ class HomeService {
     );
   }
 
-  /// Kept for callers that only need the current class reminder.
+  /// Kept for callers that only need the current-class reminder.
   Future<OngoingClassModel?> loadOngoingClass({
     required String userId,
     DateTime? now,
   }) async {
     final schedule = await loadTodaySchedule(userId: userId, now: now);
+
     return schedule.ongoingClass;
   }
 
@@ -108,7 +133,9 @@ class HomeService {
     _TimedTimetableRow timedRow,
   ) async {
     final row = timedRow.row;
+
     final roomNodeId = row['room_node_id']?.toString().trim() ?? '';
+
     String? floorId;
     String? nodeLabel;
 
@@ -119,8 +146,9 @@ class HomeService {
           .eq('node_id', roomNodeId)
           .maybeSingle();
 
-      floorId = node?['floor_id'] as String?;
-      nodeLabel = node?['label'] as String?;
+      floorId = node?['floor_id']?.toString();
+
+      nodeLabel = node?['label']?.toString();
     }
 
     return OngoingClassModel(
@@ -136,6 +164,7 @@ class HomeService {
 
   bool _isSameWeekday(Object? rawDay, int weekday) {
     final day = rawDay?.toString().trim().toLowerCase();
+
     const dayNumbers = <String, int>{
       'monday': DateTime.monday,
       'mon': DateTime.monday,
@@ -160,35 +189,55 @@ class HomeService {
   }
 
   int? _timeToMinutes(Object? value) {
-    if (value == null) return null;
+    if (value == null) {
+      return null;
+    }
 
     final parts = value.toString().split(':');
-    if (parts.length < 2) return null;
+
+    if (parts.length < 2) {
+      return null;
+    }
 
     final hours = int.tryParse(parts[0]);
     final minutes = int.tryParse(parts[1]);
-    if (hours == null || minutes == null) return null;
+
+    if (hours == null || minutes == null) {
+      return null;
+    }
+
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return null;
+    }
 
     return hours * 60 + minutes;
   }
 
   String _formatFloorLabel(String? floorId, String roomNodeId) {
-    final source = (floorId == null || floorId.trim().isEmpty)
+    final source = floorId == null || floorId.trim().isEmpty
         ? roomNodeId.split('_').first
         : floorId.trim();
+
     final normalized = source.toUpperCase();
 
-    if (normalized == 'G' || normalized == 'GROUND') return 'Ground Floor';
+    if (normalized == 'G' || normalized == 'GROUND') {
+      return 'Ground Floor';
+    }
 
     final number = RegExp(r'\d+').firstMatch(normalized)?.group(0);
+
     return number == null ? source : 'Level $number';
   }
 
   String _firstUsefulText(List<Object?> values) {
     for (final value in values) {
       final text = value?.toString().trim();
-      if (text != null && text.isNotEmpty) return text;
+
+      if (text != null && text.isNotEmpty) {
+        return text;
+      }
     }
+
     return '';
   }
 }

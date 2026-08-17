@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/database_tables.dart';
@@ -7,6 +8,7 @@ import '../models/edge_model.dart';
 import '../models/floor_model.dart';
 import '../models/navigation_graph_data.dart';
 import '../models/node_model.dart';
+import '../models/qr_code_model.dart';
 
 /// The only navigation class that reads graph data directly from Supabase.
 ///
@@ -20,12 +22,17 @@ class NavigationRepository {
 
   static const String _floorColumns =
       'floor_id, level_number, floor_name, spline_url, is_accessible';
+
   static const String _nodeColumns =
       'node_id, floor_id, node_code, node_type, label, description, '
       'x_coord, y_coord, z_coord, tags, is_active';
+
   static const String _edgeColumns =
       'edge_id, source_node_id, target_node_id, traversal_cost, edge_type, '
       'description, distance_weight, is_accessible, is_active';
+
+  static const String _qrColumns =
+      'qr_id, node_id, qr_value, location_description, status';
 
   /// Loads the floors that exist in the CampusGO map.
   Future<List<FloorModel>> fetchFloors() async {
@@ -44,6 +51,7 @@ class NavigationRepository {
   }
 
   /// Loads every active node, including hidden corridor junctions.
+  ///
   /// Junctions are needed by Dijkstra even though they are not shown in search.
   Future<List<NodeModel>> fetchActiveNodes() async {
     try {
@@ -63,8 +71,8 @@ class NavigationRepository {
 
   /// Loads active walking, lift, stair, auditorium, and other route edges.
   ///
-  /// Accessibility filtering happens before the list reaches Dijkstra. When
-  /// [accessibleOnly] is true, a stair row marked inaccessible cannot be used.
+  /// Accessibility filtering happens before the list reaches Dijkstra.
+  /// When [accessibleOnly] is true, an inaccessible edge cannot be used.
   Future<List<EdgeModel>> fetchActiveEdges({
     bool accessibleOnly = false,
   }) async {
@@ -77,7 +85,9 @@ class NavigationRepository {
 
       final edges = rows
           .map((row) => EdgeModel.fromJson(Map<String, dynamic>.from(row)))
-          .where((edge) => !accessibleOnly || edge.isAccessible)
+          .where(
+            (edge) => !accessibleOnly || _passesEdgeLevelAccessibility(edge),
+          )
           .toList(growable: false);
 
       return edges;
@@ -94,18 +104,19 @@ class NavigationRepository {
       fetchActiveEdges(accessibleOnly: accessibleOnly),
     ]);
 
-    return NavigationGraphData(
+    final graph = NavigationGraphData(
       floors: results[0] as List<FloorModel>,
       nodes: results[1] as List<NodeModel>,
       edges: results[2] as List<EdgeModel>,
     );
+
+    return graphForRouting(graph: graph, accessibleOnly: accessibleOnly);
   }
 
   /// Creates the graph snapshot that may be passed to Dijkstra.
   ///
-  /// The controller loads the complete active graph from Supabase once. When
-  /// accessibility mode changes, this method filters that already-loaded edge
-  /// list in memory instead of downloading the same floors and nodes again.
+  /// The controller loads the complete active graph from Supabase once.
+  /// Accessibility mode then filters the already-loaded edges in memory.
   NavigationGraphData graphForRouting({
     required NavigationGraphData graph,
     required bool accessibleOnly,
@@ -116,15 +127,127 @@ class NavigationRepository {
       floors: graph.floors,
       nodes: graph.nodes,
       edges: graph.edges
-          .where((edge) => edge.isAccessible)
+          .where(
+            (edge) => _isPermittedAccessibleEdge(
+              edge: edge,
+              nodeById: graph.nodeById,
+            ),
+          )
           .toList(growable: false),
     );
   }
 
-  /// Resolves a QR or manually selected node ID to one active node.
+  /// Edge-level accessibility check used while loading edges.
+  ///
+  /// The node-aware check in [graphForRouting] is still the final authority,
+  /// because an edge may be labelled as a walkway even when one endpoint is a
+  /// staircase node.
+  bool _passesEdgeLevelAccessibility(EdgeModel edge) {
+    return edge.isAccessible && !_isStaircaseEdgeType(edge.edgeType);
+  }
+
+  /// Final accessibility rule applied before Dijkstra receives the graph.
+  ///
+  /// An accessible route may never enter or leave a staircase node. The
+  /// explicit edge-type check is kept as a second defensive safeguard in case
+  /// a future database row is labelled as stairs but its endpoint node types
+  /// are accidentally incorrect.
+  bool _isPermittedAccessibleEdge({
+    required EdgeModel edge,
+    required Map<String, NodeModel> nodeById,
+  }) {
+    if (!_passesEdgeLevelAccessibility(edge)) return false;
+
+    final sourceId = edge.sourceNodeId?.trim();
+    final targetId = edge.targetNodeId?.trim();
+
+    if (sourceId == null ||
+        sourceId.isEmpty ||
+        targetId == null ||
+        targetId.isEmpty) {
+      return false;
+    }
+
+    final sourceNode = nodeById[sourceId];
+    final targetNode = nodeById[targetId];
+
+    // Missing endpoints are invalid for routing anyway, so do not allow them
+    // into the accessible graph.
+    if (sourceNode == null || targetNode == null) return false;
+
+    return !_isStaircaseNode(sourceNode) && !_isStaircaseNode(targetNode);
+  }
+
+  bool _isStaircaseNode(NodeModel node) {
+    return node.nodeType?.trim().toLowerCase() == 'staircase';
+  }
+
+  bool _isStaircaseEdgeType(String? edgeType) {
+    final normalized = edgeType?.trim().toLowerCase();
+
+    return normalized == 'stair' ||
+        normalized == 'stairs' ||
+        normalized == 'staircase' ||
+        normalized == 'stairway';
+  }
+
+  /// Finds one CampusGO QR checkpoint by the exact value stored inside the QR.
+  ///
+  /// Example:
+  /// CAMPUSGO_L6_LIFT
+  ///        ↓
+  /// qr_codes
+  ///        ↓
+  /// L6_N1
+  ///
+  /// Inactive checkpoints are also returned so the scanner can distinguish
+  /// between "unknown QR" and "known but inactive QR".
+  Future<QrCodeModel?> findQrByValue(String qrValue) async {
+    final normalizedValue = qrValue.trim();
+
+    if (normalizedValue.isEmpty) {
+      return null;
+    }
+
+    try {
+      final row = await _client
+          .from(DatabaseTables.qrCodes)
+          .select(_qrColumns)
+          .eq('qr_value', normalizedValue)
+          .maybeSingle();
+
+      // TEMPORARY DEBUG:
+      // This tells us exactly what Supabase returned for the QR lookup.
+      debugPrint('QR DEBUG: requested="$normalizedValue", returned=$row');
+
+      if (row == null) {
+        return null;
+      }
+
+      return QrCodeModel.fromJson(Map<String, dynamic>.from(row));
+    } catch (error) {
+      throw AppException(
+        'Unable to verify that CampusGO QR checkpoint.',
+        cause: error,
+      );
+    }
+  }
+
+  /// Resolves the node_id obtained from the QR table into the existing
+  /// navigation NodeModel.
+  ///
+  /// Example:
+  /// L6_N1
+  ///   ↓
+  /// nodes table
+  ///   ↓
+  /// NodeModel
   Future<NodeModel?> findActiveNodeById(String nodeId) async {
     final normalizedId = nodeId.trim();
-    if (normalizedId.isEmpty) return null;
+
+    if (normalizedId.isEmpty) {
+      return null;
+    }
 
     try {
       final row = await _client
@@ -134,7 +257,10 @@ class NavigationRepository {
           .eq('is_active', true)
           .maybeSingle();
 
-      if (row == null) return null;
+      if (row == null) {
+        return null;
+      }
+
       return NodeModel.fromJson(Map<String, dynamic>.from(row));
     } catch (error) {
       throw AppException(
@@ -144,15 +270,18 @@ class NavigationRepository {
     }
   }
 
-  /// Loads the labelled node list once. The UI can then filter it instantly as
-  /// the user types instead of sending one network request for every letter.
+  /// Loads the labelled node list once.
+  ///
+  /// The UI can then filter it locally instead of sending one Supabase request
+  /// for every character the user types.
   Future<List<DestinationModel>> fetchSearchableDestinations() async {
     final nodes = await fetchActiveNodes();
+
     return buildSearchableDestinations(nodes);
   }
 
-  /// Derives search results from nodes that have already been loaded as part of
-  /// [loadGraph], avoiding a second request for the same node rows.
+  /// Derives searchable locations from nodes that are already loaded as part
+  /// of the navigation graph.
   List<DestinationModel> buildSearchableDestinations(
     Iterable<NodeModel> nodes,
   ) {
@@ -166,22 +295,28 @@ class NavigationRepository {
         second.name.toLowerCase(),
       );
 
-      if (nameComparison != 0) return nameComparison;
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+
       return first.nodeId.compareTo(second.nodeId);
     });
 
     return List.unmodifiable(destinations);
   }
 
-  /// Pure in-memory search used after [fetchSearchableDestinations].
+  /// Pure in-memory search used after the searchable destinations are loaded.
   List<DestinationModel> filterDestinations({
     required List<DestinationModel> destinations,
     required String query,
     int limit = 12,
   }) {
-    if (limit <= 0) return const [];
+    if (limit <= 0) {
+      return const [];
+    }
 
     final normalizedQuery = query.trim();
+
     if (normalizedQuery.isEmpty) {
       return destinations.take(limit).toList(growable: false);
     }

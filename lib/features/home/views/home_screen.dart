@@ -10,11 +10,13 @@ import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../../navigation/controllers/navigation_controller.dart';
 import '../../navigation/models/destination_model.dart';
+import '../../navigation/models/node_model.dart';
 import '../../profile/models/profile_model.dart';
 import '../models/ongoing_class_model.dart';
 import '../widgets/home_floor_selector.dart';
 import '../widgets/home_spline_map.dart';
 import '../widgets/home_navigation_panel.dart';
+import '../widgets/home_route_summary_panel.dart';
 import '../widgets/home_side_controls.dart';
 import '../widgets/ongoing_class_card.dart';
 
@@ -161,7 +163,40 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _setAccessibility(bool value) {
+    if (_navigationController.accessibleOnly == value) return;
+
+    // Only reroute automatically when the user already had an active route.
+    // Merely selecting a current location and destination should not start
+    // navigation just because the accessibility preference changed.
+    final hadActiveRoute = _navigationController.routeResult != null;
+
+    // This updates the controller's routing mode and clears any route that was
+    // calculated under the previous accessibility setting.
     _navigationController.setAccessibleOnly(value);
+
+    if (!hadActiveRoute) return;
+
+    // Recalculate the same Current Location -> Destination immediately using
+    // the newly filtered routing graph. If accessible mode leaves no valid
+    // path, calculateRoute() keeps the old route cleared and exposes the
+    // appropriate "No accessible route" message instead of falling back.
+    final result = _navigationController.calculateRoute();
+
+    if (result == null) {
+      _showMessage(
+        _navigationController.message ??
+            'CampusGO could not recalculate the route.',
+      );
+      return;
+    }
+
+    debugPrint(
+      'CampusGO route recalculated after accessibility change: '
+      '${value ? 'ON' : 'OFF'}.',
+    );
+    debugPrint('CampusGO route node IDs: ${result.nodeIds.join(' -> ')}');
+    debugPrint('CampusGO route edge IDs: ${result.edgeIds.join(' -> ')}');
+    debugPrint('CampusGO route total cost: ${result.totalCost}');
   }
 
   void _closeDrawerThen(VoidCallback action) {
@@ -174,6 +209,125 @@ class _HomeScreenState extends State<HomeScreen> {
       _selectedFloor = floor;
       _floorSelectionRequest++;
     });
+  }
+
+  /// Converts the selected node's Supabase floor reference into the exact
+  /// Spline floor-object name used by window.selectFloor().
+  ///
+  /// Most CampusGO rows already store values such as L6 and L9. The graph and
+  /// node-ID fallbacks keep camera focusing reliable if a database later uses
+  /// an internal floor ID such as FLOOR_6 instead.
+  String? _cameraFloorForLocation(DestinationModel location) {
+    final storedFloorId = location.floorId?.trim();
+
+    if (storedFloorId != null && storedFloorId.isNotEmpty) {
+      final normalizedFloorId = storedFloorId.toUpperCase();
+
+      if (_floors.contains(normalizedFloorId)) {
+        return normalizedFloorId;
+      }
+
+      final graph = _navigationController.graph;
+
+      if (graph != null) {
+        for (final floor in graph.floors) {
+          if (floor.floorId.trim().toUpperCase() != normalizedFloorId) {
+            continue;
+          }
+
+          final levelNumber = floor.levelNumber;
+
+          if (levelNumber != null) {
+            final cameraFloor = levelNumber == 0 ? 'G' : 'L$levelNumber';
+
+            if (_floors.contains(cameraFloor)) {
+              return cameraFloor;
+            }
+          }
+        }
+      }
+
+      if (normalizedFloorId == 'G' || normalizedFloorId.contains('GROUND')) {
+        return 'G';
+      }
+
+      final levelMatch = RegExp(r'\d+').firstMatch(normalizedFloorId);
+      final levelNumber = levelMatch == null
+          ? null
+          : int.tryParse(levelMatch.group(0)!);
+
+      if (levelNumber != null) {
+        final cameraFloor = levelNumber == 0 ? 'G' : 'L$levelNumber';
+
+        if (_floors.contains(cameraFloor)) {
+          return cameraFloor;
+        }
+      }
+    }
+
+    final normalizedNodeId = location.nodeId.trim().toUpperCase();
+
+    for (final floor in _floors) {
+      if (normalizedNodeId == floor ||
+          normalizedNodeId.startsWith('${floor}_') ||
+          normalizedNodeId.startsWith('${floor}N')) {
+        return floor;
+      }
+    }
+
+    return null;
+  }
+
+  void _focusMapOnLocation(
+    DestinationModel location, {
+    required String reason,
+  }) {
+    final floor = _cameraFloorForLocation(location);
+
+    if (floor == null) {
+      debugPrint(
+        'CampusGO camera floor unresolved for ${location.nodeId} '
+        '(floor_id: ${location.floorId}, reason: $reason).',
+      );
+      return;
+    }
+
+    debugPrint(
+      'CampusGO camera requesting $floor for ${location.nodeId} '
+      '(reason: $reason).',
+    );
+    _selectFloor(floor);
+  }
+
+  /// Recenter must return to the floor containing the user's ORIGINAL/current
+  /// start location for the navigation session, not whichever floor happens
+  /// to be selected right now. Falling back to the destination, and then to
+  /// a same-floor reselect, keeps the button useful even before a route has
+  /// been calculated.
+  void _handleRecenterPressed() {
+    final startLocation = _navigationController.currentLocation;
+
+    if (startLocation != null) {
+      _focusMapOnLocation(
+        startLocation,
+        reason: 'recenter button; return to current location',
+      );
+      return;
+    }
+
+    final destination = _navigationController.destination;
+
+    if (destination != null) {
+      _focusMapOnLocation(
+        destination,
+        reason: 'recenter button; no current location set, using destination',
+      );
+      return;
+    }
+
+    // Nothing selected yet: still force the Spline camera back onto the
+    // currently selected floor's saved view (same-floor reselect).
+    _selectFloor(_selectedFloor);
   }
 
   void _handleLocationFocusChanged() {
@@ -204,12 +358,30 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _handleQrPressed() async {
+    _collapseNavigationPanel();
+
+    final node = await Navigator.of(
+      context,
+    ).pushNamed<NodeModel>(AppRoutes.qrScanner);
+
+    if (!mounted || node == null) return;
+
+    // From this point onward QR and manual selection use the same state path.
+    // The scanner returns a real NodeModel, then HomeScreen wraps it in the
+    // same DestinationModel that manual search already uses.
+    final location = DestinationModel(node: node);
+    _selectCurrentLocation(location);
+    _showMessage('Current location set to ${location.name}.');
+  }
+
   void _selectCurrentLocation(DestinationModel location) {
     _currentLocationController.value = TextEditingValue(
       text: location.name,
       selection: TextSelection.collapsed(offset: location.name.length),
     );
     _navigationController.selectCurrentLocation(location);
+    _focusMapOnLocation(location, reason: 'current location selected');
     _currentLocationFocusNode.unfocus();
   }
 
@@ -219,6 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
       selection: TextSelection.collapsed(offset: destination.name.length),
     );
     _navigationController.selectDestination(destination);
+    _focusMapOnLocation(destination, reason: 'destination selected');
     _destinationFocusNode.unfocus();
   }
 
@@ -250,12 +423,21 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint('CampusGO route edge IDs: ${result.edgeIds.join(' -> ')}');
     debugPrint('CampusGO route total cost: ${result.totalCost}');
 
+    final startLocation = _navigationController.currentLocation;
+
+    if (startLocation != null) {
+      _focusMapOnLocation(
+        startLocation,
+        reason: 'route calculated; return to route start',
+      );
+    }
+
     _collapseNavigationPanel();
-    _showMessage(
-      'Route ready: ${result.nodeIds.length} nodes, '
-      '${result.edgeIds.length} edges, '
-      'cost ${result.totalCost.toStringAsFixed(2)}.',
-    );
+  }
+
+  void _endNavigation() {
+    _navigationController.clearRoute();
+    _collapseNavigationPanel();
   }
 
   bool _ensureNavigationReady() {
@@ -352,6 +534,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final isSearchActive = _isSearchActive;
     final searchSuggestions = _searchSuggestions;
     final isPanelVisuallyExpanded = _isPanelVisuallyExpanded;
+    final activeRoute = _navigationController.routeResult;
+    final activeDestination = _navigationController.destination;
+    final hasActiveRoute = activeRoute != null && activeDestination != null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -413,6 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final collapsedPanelHeight = 145.0 + bottomSafeArea;
+              final routeSummaryPanelHeight = 126.0 + bottomSafeArea;
               final expandedPanelHeight = (constraints.maxHeight * 0.64)
                   .clamp(collapsedPanelHeight, constraints.maxHeight - 64)
                   .toDouble();
@@ -425,7 +611,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   (collapsedPanelHeight + 8 + (guestSearchRows * 58))
                       .clamp(collapsedPanelHeight, guestSearchMaximumHeight)
                       .toDouble();
-              final panelHeight = !isPanelVisuallyExpanded
+              final panelHeight = hasActiveRoute
+                  ? routeSummaryPanelHeight
+                  : !isPanelVisuallyExpanded
                   ? collapsedPanelHeight
                   : _isRegisteredUser
                   ? expandedPanelHeight
@@ -447,6 +635,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         HomeSplineMap(
                           selectedFloor: _selectedFloor,
                           selectionRequest: _floorSelectionRequest,
+                          visibleRouteEdgeIds:
+                              _navigationController.routeResult?.edgeIds
+                                  .toSet() ??
+                              const <String>{},
+                          routeStartNode:
+                              _navigationController.routeResult == null
+                              ? null
+                              : _navigationController.currentLocation?.node,
+                          routeDestinationNode:
+                              _navigationController.routeResult == null
+                              ? null
+                              : _navigationController.destination?.node,
                         ),
                   ),
                   if (_showMapDismissLayer)
@@ -504,9 +704,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           onAccessibilityPressed: () {
                             _setAccessibility(!_isAccessibilityEnabled);
                           },
-                          onRecenterPressed: () {
-                            _showMessage('Map recentered.');
-                          },
+                          onRecenterPressed: _handleRecenterPressed,
                         ),
                       ],
                     ),
@@ -519,44 +717,64 @@ class _HomeScreenState extends State<HomeScreen> {
                       duration: const Duration(milliseconds: 320),
                       curve: Curves.easeOutCubic,
                       height: panelHeight,
-                      child: HomeNavigationPanel(
-                        isExpanded: isPanelVisuallyExpanded,
-                        isRegisteredUser: _isRegisteredUser,
-                        bottomSafeArea: bottomSafeArea,
-                        ongoingClass: widget.ongoingClass,
-                        nextClasses: widget.nextClasses,
-                        currentLocationController: _currentLocationController,
-                        currentLocationFocusNode: _currentLocationFocusNode,
-                        destinationController: _destinationController,
-                        destinationFocusNode: _destinationFocusNode,
-                        isDestinationEditable:
-                            !_isRegisteredUser || _isNavigationPanelExpanded,
-                        isSearchActive: isSearchActive,
-                        searchSuggestions: searchSuggestions,
-                        onSearchSuggestionSelected: _selectSearchSuggestion,
-                        onCurrentLocationTextChanged:
-                            _navigationController.currentLocationTextChanged,
-                        onDestinationTextChanged:
-                            _navigationController.destinationTextChanged,
-                        canStartNavigation:
-                            _navigationController.canCalculateRoute,
-                        isNavigationLoading:
-                            _navigationController.isLoadingGraph,
-                        onCurrentLocationPressed: _handleCurrentLocationPressed,
-                        onQrPressed: () {
-                          _collapseNavigationPanel();
-                          _showMessage('QR checkpoint scanner opens here.');
-                        },
-                        onDestinationPressed: _handleDestinationPressed,
-                        onStartNavigationPressed: _startNavigation,
-                        onDestinationSwipeUp: _handleDestinationSwipeUp,
-                        onDestinationSwipeDown: _collapseNavigationPanel,
-                        onBackgroundPressed: _collapseNavigationPanel,
-                        onNavigatePressed: _navigateToClass,
-                        onViewAllPressed: () {
-                          _collapseNavigationPanel();
-                          Navigator.of(context).pushNamed(AppRoutes.timetable);
-                        },
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        switchInCurve: Curves.easeOut,
+                        switchOutCurve: Curves.easeIn,
+                        child: hasActiveRoute
+                            ? HomeRouteSummaryPanel(
+                                key: const ValueKey('route-summary-panel'),
+                                destination: activeDestination!,
+                                routeResult: activeRoute!,
+                                bottomSafeArea: bottomSafeArea,
+                                onClosePressed: _endNavigation,
+                              )
+                            : HomeNavigationPanel(
+                                key: const ValueKey('navigation-input-panel'),
+                                isExpanded: isPanelVisuallyExpanded,
+                                isRegisteredUser: _isRegisteredUser,
+                                bottomSafeArea: bottomSafeArea,
+                                ongoingClass: widget.ongoingClass,
+                                nextClasses: widget.nextClasses,
+                                currentLocationController:
+                                    _currentLocationController,
+                                currentLocationFocusNode:
+                                    _currentLocationFocusNode,
+                                destinationController: _destinationController,
+                                destinationFocusNode: _destinationFocusNode,
+                                isDestinationEditable:
+                                    !_isRegisteredUser ||
+                                    _isNavigationPanelExpanded,
+                                isSearchActive: isSearchActive,
+                                searchSuggestions: searchSuggestions,
+                                onSearchSuggestionSelected:
+                                    _selectSearchSuggestion,
+                                onCurrentLocationTextChanged:
+                                    _navigationController
+                                        .currentLocationTextChanged,
+                                onDestinationTextChanged: _navigationController
+                                    .destinationTextChanged,
+                                canStartNavigation:
+                                    _navigationController.canCalculateRoute,
+                                isNavigationLoading:
+                                    _navigationController.isLoadingGraph,
+                                onCurrentLocationPressed:
+                                    _handleCurrentLocationPressed,
+                                onQrPressed: _handleQrPressed,
+                                onDestinationPressed: _handleDestinationPressed,
+                                onStartNavigationPressed: _startNavigation,
+                                onDestinationSwipeUp: _handleDestinationSwipeUp,
+                                onDestinationSwipeDown:
+                                    _collapseNavigationPanel,
+                                onBackgroundPressed: _collapseNavigationPanel,
+                                onNavigatePressed: _navigateToClass,
+                                onViewAllPressed: () {
+                                  _collapseNavigationPanel();
+                                  Navigator.of(
+                                    context,
+                                  ).pushNamed(AppRoutes.timetable);
+                                },
+                              ),
                       ),
                     ),
                   ),

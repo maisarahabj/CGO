@@ -35,10 +35,23 @@ class NodeModel {
 
     for (final candidate in candidates) {
       final value = candidate?.trim();
-      if (value != null && value.isNotEmpty) return value;
+      if (value != null && value.isNotEmpty) return _sentenceCase(value);
     }
 
     return nodeId;
+  }
+
+  /// Makes database labels consistent in the search interface without
+  /// changing their stored Supabase values.
+  ///
+  /// Existing internal capitals are preserved, so labels such as "L8 Lift"
+  /// and "MATLAB Lab" are not damaged. A lower-case label such as "python"
+  /// becomes "Python".
+  static String _sentenceCase(String value) {
+    final normalized = value.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized.isEmpty) return normalized;
+
+    return normalized[0].toUpperCase() + normalized.substring(1);
   }
 
   /// Whether this node has a position that can later be sent to Spline.

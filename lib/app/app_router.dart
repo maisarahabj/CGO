@@ -23,6 +23,7 @@ import '../features/timetable/views/admin_manage_timetable_screen.dart';
 import '../features/timetable/views/timetable_screen.dart';
 import '../features/support/views/issue_report_screen.dart';
 import 'app_routes.dart';
+import '../features/support/views/admin_manage_faq_screen.dart';
 
 export 'app_routes.dart';
 
@@ -181,6 +182,12 @@ abstract final class AppRouter {
           settings: settings,
           authController: authController,
           screen: const AdminManageIssueReportsScreen(),
+        );
+      case AppRoutes.adminFaq:
+        return _adminRoute(
+          settings: settings,
+          authController: authController,
+          screen: const AdminManageFaqScreen(),
         );
 
       case AppRoutes.adminQrCheckpoints:

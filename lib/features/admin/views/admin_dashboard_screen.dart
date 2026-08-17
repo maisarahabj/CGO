@@ -163,6 +163,14 @@ class AdminDashboardScreen extends StatelessWidget {
                                 },
                               ),
                               _AdminActionButton(
+                                label: 'FAQ Management',
+                                onPressed: () {
+                                  Navigator.of(
+                                    context,
+                                  ).pushNamed(AppRoutes.adminFaq);
+                                },
+                              ),
+                              _AdminActionButton(
                                 label: 'QR Checkpoints',
                                 onPressed: () {
                                   Navigator.of(

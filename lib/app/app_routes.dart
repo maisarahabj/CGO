@@ -20,6 +20,7 @@ abstract final class AppRoutes {
   static const String adminMapManagement = '/admin/map-management';
   static const String adminRouteManagement = '/admin/route-management';
   static const String adminIssueReports = '/admin/issue-reports';
+  static const String adminFaq = '/admin/faqs';
   static const String adminQrCheckpoints = '/admin/qr-checkpoints';
   static const String adminUserProfiles = '/admin/user-profiles';
   static const String privacyLegalHelp = '/privacy-legal-help';

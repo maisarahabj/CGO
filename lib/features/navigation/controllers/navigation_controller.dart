@@ -188,6 +188,16 @@ class NavigationController extends ChangeNotifier {
     return result;
   }
 
+  /// Ends the currently displayed route without clearing the user's selected
+  /// Current Location or Destination. This lets HomeScreen return to the
+  /// normal input panel while preserving the selections for another route.
+  void clearRoute() {
+    if (_routeResult == null && _message == null) return;
+
+    _clearCalculatedRoute();
+    _notifyListenersSafely();
+  }
+
   void _clearCalculatedRoute() {
     _routeResult = null;
     _message = null;

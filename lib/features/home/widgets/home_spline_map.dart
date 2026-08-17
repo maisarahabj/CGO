@@ -52,7 +52,9 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
   /// Must be slightly longer than the camera transition configured in Spline.
   /// While a transition is running, the newest requested floor is queued.
-  static const Duration _cameraTransitionDuration = Duration(milliseconds: 900);
+  static const Duration _cameraTransitionDuration = Duration(
+    milliseconds: 1100,
+  );
 
   late final WebViewController _controller;
 
@@ -240,111 +242,15 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
     /*
      * ---------------------------------------------------------------------
-     * REMEMBERED FLOOR CAMERA TRANSFORMS
+     * FLOOR CAMERA CONTROL
      * ---------------------------------------------------------------------
-     * Diagnostic logging (see chat history) confirmed that spline._camera
-     * is the single, real, rendered camera: its position/rotation/
-     * quaternion/zoom genuinely change with both orbit and floor switches.
-     * spline._camera.orthoCamera / .perspCamera are inert templates always
-     * stuck at identity — not involved in rendering. No separate
-     * orbit-controls object (something exposing target/update()/enabled)
-     * was found anywhere reachable from `spline`, so orbit most likely
-     * writes straight into spline._camera itself.
+     * Flutter does not write directly to spline._camera.
      *
-     * That means replaying the Mouse Up event asks Spline to re-run its own
-     * animated Switch Camera tween starting from wherever the camera
-     * currently sits — and if that tween gets interrupted (another dispatch
-     * fired mid-flight, or it overlaps an in-progress drag), it can settle
-     * slightly off. That matches "a little glitchy" rather than "broken".
-     *
-     * Fix: the first time a floor is requested, still use Spline's own
-     * dispatch()-based transition (so it plays a real animation), then once
-     * it should have settled, remember spline._camera's actual resulting
-     * transform for that floor name. Every later request for that same
-     * floor skips dispatch() entirely and animates spline._camera straight
-     * to the remembered transform ourselves — never touching Spline's own
-     * transition or orbit machinery, so nothing orbit does can corrupt it.
+     * Every floor request replays the floor object's original Spline
+     * Mouse Up -> Switch Camera event. This keeps Spline's own camera,
+     * orbit, pan and zoom state in one system instead of mixing native
+     * Spline camera control with a second custom camera tween.
      */
-    const floorCameraCache = {};
-    let cameraTweenFrame = null;
-
-    function cloneCameraTransform() {
-      const camera = spline._camera;
-      return {
-        position: {
-          x: camera.position.x,
-          y: camera.position.y,
-          z: camera.position.z,
-        },
-        quaternion: {
-          x: camera.quaternion.x,
-          y: camera.quaternion.y,
-          z: camera.quaternion.z,
-          w: camera.quaternion.w,
-        },
-        zoom: camera.zoom,
-      };
-    }
-
-    function lerp(a, b, t) {
-      return a + (b - a) * t;
-    }
-
-    function tweenCameraTo(targetTransform, durationMs, onComplete) {
-      if (cameraTweenFrame !== null) {
-        cancelAnimationFrame(cameraTweenFrame);
-        cameraTweenFrame = null;
-      }
-
-      const camera = spline._camera;
-      const start = cloneCameraTransform();
-      const startTime = performance.now();
-
-      function step(now) {
-        const elapsed = now - startTime;
-        const t = Math.min(1, durationMs <= 0 ? 1 : elapsed / durationMs);
-        // Ease-out cubic, close to the feel of Spline's own default
-        // transition curve.
-        const eased = 1 - Math.pow(1 - t, 3);
-
-        camera.position.x = lerp(start.position.x, targetTransform.position.x, eased);
-        camera.position.y = lerp(start.position.y, targetTransform.position.y, eased);
-        camera.position.z = lerp(start.position.z, targetTransform.position.z, eased);
-
-        const qx = lerp(start.quaternion.x, targetTransform.quaternion.x, eased);
-        const qy = lerp(start.quaternion.y, targetTransform.quaternion.y, eased);
-        const qz = lerp(start.quaternion.z, targetTransform.quaternion.z, eased);
-        const qw = lerp(start.quaternion.w, targetTransform.quaternion.w, eased);
-        const qLen = Math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw) || 1;
-        camera.quaternion.x = qx / qLen;
-        camera.quaternion.y = qy / qLen;
-        camera.quaternion.z = qz / qLen;
-        camera.quaternion.w = qw / qLen;
-
-        camera.zoom = lerp(start.zoom, targetTransform.zoom, eased);
-
-        // Both are safe no-ops if the runtime's camera object doesn't
-        // expose them; harmless either way, but keep any cached
-        // matrix/projection state consistent if it does.
-        if (typeof camera.updateMatrixWorld === 'function') {
-          camera.updateMatrixWorld(true);
-        }
-        if (typeof camera.updateProjectionMatrix === 'function') {
-          camera.updateProjectionMatrix();
-        }
-
-        spline.requestRender();
-
-        if (t < 1) {
-          cameraTweenFrame = requestAnimationFrame(step);
-        } else {
-          cameraTweenFrame = null;
-          if (onComplete) onComplete();
-        }
-      }
-
-      cameraTweenFrame = requestAnimationFrame(step);
-    }
 
     /*
      * ---------------------------------------------------------------------
@@ -441,9 +347,9 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
        * replayable dispatch() method. The runtime version is pinned above so
        * this event-manager structure stays consistent.
        *
-       * This is now only used the FIRST time a given floor is requested, to
-       * learn its true camera transform (see floorCameraCache above). Every
-       * later request for that floor bypasses this entirely.
+       * This is used for EVERY Flutter floor request. Replaying Spline's
+       * original dispatcher lets the authored Switch Camera action reset the
+       * view even after the user has orbited, panned or zoomed.
        */
       const mouseUpEvents = getMouseUpEventsForObject(floorObject);
 
@@ -477,17 +383,14 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         return false;
       }
 
-      const cached = floorCameraCache[floorName];
-
-      if (cached) {
-        tweenCameraTo(cached, 500, function() {
-          sendToFlutter('selected:' + floorName);
-        });
-        return true;
-      }
-
-      // First-ever request for this floor: use Spline's own transition so
-      // it plays a real animation, then remember where it actually landed.
+      /*
+       * Always let Spline perform the Switch Camera action itself.
+       *
+       * Do not cache or manually tween spline._camera here. A cached transform
+       * can be captured while another floor transition or user gesture is
+       * already changing the camera, which makes later recenter/floor requests
+       * unreliable.
+       */
       const replayed = replayMouseUpEvent(floorObject);
 
       if (!replayed) {
@@ -496,12 +399,6 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       }
 
       sendToFlutter('selected:' + floorName);
-
-      setTimeout(function() {
-        floorCameraCache[floorName] = cloneCameraTransform();
-        sendToFlutter('camera-cache-learned:' + floorName);
-      }, 1000);
-
       return true;
     };
 
@@ -660,16 +557,6 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     }
 
     if (value == 'markers-updated') {
-      return;
-    }
-
-    if (value.startsWith('camera-cache-learned:')) {
-      final floor = value.substring('camera-cache-learned:'.length);
-      debugPrint(
-        'CampusGO learned the camera transform for floor $floor; future '
-        "switches to it will animate directly instead of replaying Spline's "
-        'Switch Camera event.',
-      );
       return;
     }
 

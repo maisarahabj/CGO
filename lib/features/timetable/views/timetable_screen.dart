@@ -904,24 +904,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _bookRoom() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Room booking will connect to the booking feature.'),
-        ),
-      );
-  }
+  Navigator.of(context).pushNamed(
+    AppRoutes.bookings,
+    arguments: _controller.selectedRoomName,
+  );
+}
 
-  void _openBookings() {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Your Bookings will connect to the booking feature.'),
-        ),
-      );
-  }
+void _openBookings() {
+  Navigator.of(context).pushNamed(AppRoutes.bookings);
+}
 
   String _shortDay(String day) {
     switch (day) {

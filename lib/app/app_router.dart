@@ -21,6 +21,9 @@ import '../features/support/views/support_screen.dart';
 import '../features/timetable/views/admin_manage_timetable_screen.dart';
 import '../features/timetable/views/timetable_screen.dart';
 import 'app_routes.dart';
+import '../features/settings/views/about_screen.dart';
+import '../features/settings/views/privacy_policy_screen.dart';
+import '../features/settings/views/terms_of_use_screen.dart';
 
 export 'app_routes.dart';
 
@@ -88,7 +91,23 @@ abstract final class AppRouter {
           settings: settings,
           builder: (_) => const SettingsScreen(),
         );
+      case AppRoutes.aboutCampusGo:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const AboutScreen(),
+        );
 
+      case AppRoutes.termsOfUse:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const TermsOfUseScreen(),
+        );
+
+      case AppRoutes.privacyPolicy:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const PrivacyPolicyScreen(),
+        );
       case AppRoutes.support:
         return MaterialPageRoute<void>(
           settings: settings,

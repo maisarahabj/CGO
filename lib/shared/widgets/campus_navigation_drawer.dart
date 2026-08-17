@@ -421,7 +421,7 @@ class _DrawerMenuItem extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(
             36,
             verticalPadding,
-            13,
+            28,
             verticalPadding,
           ),
           child: Row(

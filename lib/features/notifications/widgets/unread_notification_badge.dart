@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class UnreadNotificationBadge extends StatelessWidget {
-  const UnreadNotificationBadge({
-    required this.count,
-    super.key,
-  });
+  const UnreadNotificationBadge({required this.count, super.key});
 
   final int count;
 
@@ -14,30 +11,25 @@ class UnreadNotificationBadge extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final displayCount =
-        count > 99 ? '99+' : count.toString();
-
-    return Container(
-      constraints: const BoxConstraints(
-        minWidth: 22,
-        minHeight: 22,
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 6,
-        vertical: 2,
-      ),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: const Color(0xFFE32636),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        displayCount,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          height: 1,
+    return SizedBox(
+      width: 27,
+      height: 27,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Color(0xFFE32636),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            count > 99 ? '99' : count.toString(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1,
+            ),
+          ),
         ),
       ),
     );

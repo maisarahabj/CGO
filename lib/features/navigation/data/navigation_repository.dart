@@ -69,10 +69,16 @@ class NavigationRepository {
     }
   }
 
-  /// Loads active walking, lift, stair, auditorium, and other route edges.
+  /// Loads active navigation edges.
   ///
-  /// Accessibility filtering happens before the list reaches Dijkstra.
-  /// When [accessibleOnly] is true, an inaccessible edge cannot be used.
+  /// When [accessibleOnly] is false:
+  /// - every active edge is returned.
+  ///
+  /// When [accessibleOnly] is true:
+  /// - only edges where is_accessible = true are returned.
+  ///
+  /// Supabase is the source of truth for whether an edge is accessible.
+  /// Dart does not infer accessibility from edge_type or node_type.
   Future<List<EdgeModel>> fetchActiveEdges({
     bool accessibleOnly = false,
   }) async {
@@ -85,9 +91,7 @@ class NavigationRepository {
 
       final edges = rows
           .map((row) => EdgeModel.fromJson(Map<String, dynamic>.from(row)))
-          .where(
-            (edge) => !accessibleOnly || _passesEdgeLevelAccessibility(edge),
-          )
+          .where((edge) => !accessibleOnly || edge.isAccessible)
           .toList(growable: false);
 
       return edges;
@@ -97,6 +101,9 @@ class NavigationRepository {
   }
 
   /// Loads one internally consistent graph snapshot for Dijkstra.
+  ///
+  /// Accessibility filtering is controlled entirely by the
+  /// edges.is_accessible value from Supabase.
   Future<NavigationGraphData> loadGraph({bool accessibleOnly = false}) async {
     final results = await Future.wait<Object>([
       fetchFloors(),
@@ -115,80 +122,29 @@ class NavigationRepository {
 
   /// Creates the graph snapshot that may be passed to Dijkstra.
   ///
-  /// The controller loads the complete active graph from Supabase once.
-  /// Accessibility mode then filters the already-loaded edges in memory.
+  /// This method is useful when the controller already has the full graph
+  /// loaded in memory and the user changes the accessibility toggle.
+  ///
+  /// Accessibility OFF:
+  ///   all active edges remain available.
+  ///
+  /// Accessibility ON:
+  ///   only edges where is_accessible = true remain available.
   NavigationGraphData graphForRouting({
     required NavigationGraphData graph,
     required bool accessibleOnly,
   }) {
-    if (!accessibleOnly) return graph;
+    if (!accessibleOnly) {
+      return graph;
+    }
 
     return NavigationGraphData(
       floors: graph.floors,
       nodes: graph.nodes,
       edges: graph.edges
-          .where(
-            (edge) => _isPermittedAccessibleEdge(
-              edge: edge,
-              nodeById: graph.nodeById,
-            ),
-          )
+          .where((edge) => edge.isAccessible)
           .toList(growable: false),
     );
-  }
-
-  /// Edge-level accessibility check used while loading edges.
-  ///
-  /// The node-aware check in [graphForRouting] is still the final authority,
-  /// because an edge may be labelled as a walkway even when one endpoint is a
-  /// staircase node.
-  bool _passesEdgeLevelAccessibility(EdgeModel edge) {
-    return edge.isAccessible && !_isStaircaseEdgeType(edge.edgeType);
-  }
-
-  /// Final accessibility rule applied before Dijkstra receives the graph.
-  ///
-  /// An accessible route may never enter or leave a staircase node. The
-  /// explicit edge-type check is kept as a second defensive safeguard in case
-  /// a future database row is labelled as stairs but its endpoint node types
-  /// are accidentally incorrect.
-  bool _isPermittedAccessibleEdge({
-    required EdgeModel edge,
-    required Map<String, NodeModel> nodeById,
-  }) {
-    if (!_passesEdgeLevelAccessibility(edge)) return false;
-
-    final sourceId = edge.sourceNodeId?.trim();
-    final targetId = edge.targetNodeId?.trim();
-
-    if (sourceId == null ||
-        sourceId.isEmpty ||
-        targetId == null ||
-        targetId.isEmpty) {
-      return false;
-    }
-
-    final sourceNode = nodeById[sourceId];
-    final targetNode = nodeById[targetId];
-
-    // Missing endpoints are invalid for routing anyway, so do not allow them
-    // into the accessible graph.
-    if (sourceNode == null || targetNode == null) return false;
-
-    return !_isStaircaseNode(sourceNode) && !_isStaircaseNode(targetNode);
-  }
-
-  bool _isStaircaseNode(NodeModel node) {
-    return node.nodeType?.trim().toLowerCase() == 'staircase';
-  }
-
-  bool _isStaircaseEdgeType(String? edgeType) {
-    final normalized = edgeType?.trim().toLowerCase();
-
-    return normalized == 'stair' ||
-        normalized == 'stairs' ||
-        normalized == 'staircase' ||
-        normalized == 'stairway';
   }
 
   /// Finds one CampusGO QR checkpoint by the exact value stored inside the QR.

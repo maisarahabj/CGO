@@ -11,18 +11,18 @@ import 'home_screen.dart';
 class UserHomeScreen extends StatefulWidget {
   const UserHomeScreen({
     required this.authController,
+    this.initialDestinationNodeId,
     super.key,
   });
 
   final AuthController authController;
+  final String? initialDestinationNodeId;
 
   @override
-  State<UserHomeScreen> createState() =>
-      _UserHomeScreenState();
+  State<UserHomeScreen> createState() => _UserHomeScreenState();
 }
 
-class _UserHomeScreenState
-    extends State<UserHomeScreen> {
+class _UserHomeScreenState extends State<UserHomeScreen> {
   final HomeService _homeService = HomeService();
 
   final NotificationController _notificationController =
@@ -37,26 +37,19 @@ class _UserHomeScreenState
   void initState() {
     super.initState();
 
-    _notificationController.addListener(
-      _handleNotificationStateChanged,
-    );
+    _notificationController.addListener(_handleNotificationStateChanged);
 
     unawaited(_refreshSchedule());
     unawaited(_refreshNotifications());
 
-    _refreshTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) {
-        unawaited(_refreshSchedule());
-        unawaited(_refreshNotifications());
-      },
-    );
+    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      unawaited(_refreshSchedule());
+      unawaited(_refreshNotifications());
+    });
   }
 
   @override
-  void didUpdateWidget(
-    covariant UserHomeScreen oldWidget,
-  ) {
+  void didUpdateWidget(covariant UserHomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.authController.profile?.id !=
@@ -77,8 +70,7 @@ class _UserHomeScreenState
   }
 
   Future<void> _refreshSchedule() async {
-    final userId =
-        widget.authController.profile?.id;
+    final userId = widget.authController.profile?.id;
 
     if (userId == null || userId.isEmpty) {
       if (mounted) {
@@ -92,10 +84,7 @@ class _UserHomeScreenState
     }
 
     try {
-      final schedule =
-          await _homeService.loadTodaySchedule(
-        userId: userId,
-      );
+      final schedule = await _homeService.loadTodaySchedule(userId: userId);
 
       if (!mounted) return;
 
@@ -104,12 +93,8 @@ class _UserHomeScreenState
         _nextClasses = schedule.nextClasses;
       });
     } catch (error, stackTrace) {
-      debugPrint(
-        'Could not load today\'s classes: $error',
-      );
-      debugPrintStack(
-        stackTrace: stackTrace,
-      );
+      debugPrint('Could not load today\'s classes: $error');
+      debugPrintStack(stackTrace: stackTrace);
 
       if (mounted) {
         setState(() {
@@ -125,9 +110,7 @@ class _UserHomeScreenState
     _refreshTimer?.cancel();
 
     _notificationController
-      ..removeListener(
-        _handleNotificationStateChanged,
-      )
+      ..removeListener(_handleNotificationStateChanged)
       ..dispose();
 
     super.dispose();
@@ -140,12 +123,10 @@ class _UserHomeScreenState
       profile: widget.authController.profile,
       ongoingClass: _ongoingClass,
       nextClasses: _nextClasses,
-      unreadNotificationCount:
-          _notificationController.unreadCount,
-      onNotificationRefresh:
-          _refreshNotifications,
-      onSessionAction:
-          widget.authController.signOut,
+      unreadNotificationCount: _notificationController.unreadCount,
+      onNotificationRefresh: _refreshNotifications,
+      onSessionAction: widget.authController.signOut,
+      initialDestinationNodeId: widget.initialDestinationNodeId,
     );
   }
 }

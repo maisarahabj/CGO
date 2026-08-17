@@ -10,6 +10,7 @@ abstract final class AppRoutes {
   static const String timetable = '/timetable';
   static const String settings = '/settings';
   static const String support = '/support';
+  static const String issueReport = '/support/report-issue';
   static const String editProfile = '/profile/edit';
   static const String qrScanner = '/navigation/qr-scanner';
 

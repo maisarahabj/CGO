@@ -23,7 +23,7 @@ dependencies:
   webview_flutter: ^4.13.1
   mobile_scanner: ^7.4.0
   webview_windows: ^0.2.0           # For Windows desktop support
-  image_picker: ^1.2.3
+  image_picker: 1.2.2
   webview_flutter_web: ^0.2.3+4
 
 dev_dependencies:

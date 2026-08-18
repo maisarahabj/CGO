@@ -162,6 +162,15 @@ class NavigationController extends ChangeNotifier {
       return null;
     }
 
+    if (startNodeId == endNodeId) {
+      _routeResult = null;
+      _setMessage(
+        'Your current location and destination are the same. '
+        'Please choose a different destination.',
+      );
+      return null;
+    }
+
     final routingGraph = _repository.graphForRouting(
       graph: graph,
       accessibleOnly: _accessibleOnly,

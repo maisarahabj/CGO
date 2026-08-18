@@ -80,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isNavigationPanelExpanded = false;
   String? _dismissedTimetableId;
   bool _initialDestinationApplied = false;
+  Timer? _messageBannerTimer;
 
   bool get _isAccessibilityEnabled {
     return _navigationController.accessibleOnly;
@@ -162,9 +163,51 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
+    if (!mounted) return;
+
+    _messageBannerTimer?.cancel();
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..hideCurrentMaterialBanner()
+      ..showMaterialBanner(
+        MaterialBanner(
+          backgroundColor: const Color(0xFFFFF4E5),
+          leading: const Icon(Icons.info_outline, color: Color(0xFFB86B00)),
+          content: Text(
+            message,
+            style: const TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF333333),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                _messageBannerTimer?.cancel();
+                messenger.hideCurrentMaterialBanner();
+              },
+              child: const Text(
+                'DISMISS',
+                style: TextStyle(
+                  color: Color(0xFF2A77B4),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+    _messageBannerTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+      }
+    });
   }
 
   void _setAccessibility(bool value) {
@@ -567,6 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _messageBannerTimer?.cancel();
     _navigationController
       ..removeListener(_handleNavigationStateChanged)
       ..dispose();

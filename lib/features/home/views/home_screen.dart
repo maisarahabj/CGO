@@ -16,6 +16,7 @@ import '../models/ongoing_class_model.dart';
 import '../widgets/home_floor_selector.dart';
 import '../widgets/home_spline_map.dart';
 import '../widgets/home_navigation_panel.dart';
+import '../widgets/home_route_instructions_panel.dart';
 import '../widgets/home_route_summary_panel.dart';
 import '../widgets/home_side_controls.dart';
 import '../widgets/ongoing_class_card.dart';
@@ -32,6 +33,7 @@ class HomeScreen extends StatefulWidget {
     this.mapContent,
     this.unreadNotificationCount = 0,
     this.onNotificationRefresh,
+    this.onScheduleRefresh,
     this.initialDestinationNodeId,
     super.key,
   });
@@ -50,7 +52,7 @@ class HomeScreen extends StatefulWidget {
   /// The class currently in progress, when one exists.
   final OngoingClassModel? ongoingClass;
 
-  /// The registered user's remaining classes today.
+  /// The registered user's nearest upcoming saved classes.
   final List<OngoingClassModel> nextClasses;
 
   /// Pass the real Spline or floor-map widget here when it is ready.
@@ -59,6 +61,7 @@ class HomeScreen extends StatefulWidget {
   final int unreadNotificationCount;
 
   final Future<void> Function()? onNotificationRefresh;
+  final Future<void> Function()? onScheduleRefresh;
   final String? initialDestinationNodeId;
 
   @override
@@ -78,6 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedFloor = 'L8';
   int _floorSelectionRequest = 0;
   bool _isNavigationPanelExpanded = false;
+  bool _isInstructionListInteracting = false;
   String? _dismissedTimetableId;
   bool _initialDestinationApplied = false;
   Timer? _messageBannerTimer;
@@ -386,8 +390,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleNavigationStateChanged() {
     if (mounted) {
-      setState(() {});
+      setState(() {
+        if (_navigationController.routeResult == null) {
+          _isInstructionListInteracting = false;
+        }
+      });
     }
+  }
+
+  void _handleInstructionInteractionChanged(bool isInteracting) {
+    if (!mounted || _isInstructionListInteracting == isInteracting) return;
+
+    setState(() {
+      _isInstructionListInteracting = isInteracting;
+    });
   }
 
   void _handleSearchTextChanged() {
@@ -603,9 +619,64 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _openTimetable() async {
+    await Navigator.of(context).pushNamed(AppRoutes.timetable);
+
+    if (!mounted) return;
+
+    await widget.onScheduleRefresh?.call();
+  }
+
   void _navigateToClass(OngoingClassModel scheduledClass) {
-    _collapseNavigationPanel();
-    _showMessage('Navigation to ${scheduledClass.roomName} will start here.');
+    if (!_ensureNavigationReady()) return;
+
+    final roomNodeId = scheduledClass.roomNodeId.trim();
+
+    if (roomNodeId.isEmpty) {
+      _showMessage('Navigation is not available for this classroom yet.');
+      return;
+    }
+
+    DestinationModel? destination;
+
+    for (final item in _navigationController.destinations) {
+      if (item.nodeId == roomNodeId) {
+        destination = item;
+        break;
+      }
+    }
+
+    if (destination == null) {
+      _showMessage('Navigation is not available for this classroom yet.');
+      return;
+    }
+
+    _selectDestination(destination);
+
+    // If the user already has a current location, "Navigate Now" can start
+    // the route immediately using the existing Dijkstra pipeline.
+    if (_navigationController.currentLocation != null) {
+      _startNavigation();
+      return;
+    }
+
+    // Otherwise keep the selected class as the destination and ask only for
+    // the missing current location. The user can type it or use the QR button.
+    if (!_isNavigationPanelExpanded) {
+      setState(() {
+        _isNavigationPanelExpanded = true;
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _currentLocationFocusNode.requestFocus();
+    });
+
+    _showMessage(
+      '${scheduledClass.roomName} is set as your destination. '
+      'Select or scan your current location.',
+    );
   }
 
   @override
@@ -648,7 +719,11 @@ class _HomeScreenState extends State<HomeScreen> {
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFE8E8E8),
+        // The SafeArea keeps instruction text below the clock and Dynamic
+        // Island, while this background extends the white panel behind them.
+        backgroundColor: hasActiveRoute
+            ? Colors.white
+            : const Color(0xFFE8E8E8),
         drawerScrimColor: const Color(0x3D000000),
         drawer: CampusNavigationDrawer(
           unreadNotificationCount: widget.unreadNotificationCount,
@@ -675,7 +750,7 @@ class _HomeScreenState extends State<HomeScreen> {
           },
           onTimetablePressed: () {
             _closeDrawerThen(() {
-              Navigator.of(context).pushNamed(AppRoutes.timetable);
+              unawaited(_openTimetable());
             });
           },
           onSettingsPressed: () {
@@ -728,24 +803,28 @@ class _HomeScreenState extends State<HomeScreen> {
               return Stack(
                 children: [
                   Positioned.fill(
-                    child:
-                        widget.mapContent ??
-                        HomeSplineMap(
-                          selectedFloor: _selectedFloor,
-                          selectionRequest: _floorSelectionRequest,
-                          visibleRouteEdgeIds:
-                              _navigationController.routeResult?.edgeIds
-                                  .toSet() ??
-                              const <String>{},
-                          routeStartNode:
-                              _navigationController.routeResult == null
-                              ? null
-                              : _navigationController.currentLocation?.node,
-                          routeDestinationNode:
-                              _navigationController.routeResult == null
-                              ? null
-                              : _navigationController.destination?.node,
-                        ),
+                    child: AbsorbPointer(
+                      // A native WebView can otherwise interpret the same
+                      // finger movement used to scroll the overlaid list.
+                      absorbing: _isInstructionListInteracting,
+                      child:
+                          widget.mapContent ??
+                          HomeSplineMap(
+                            selectedFloor: _selectedFloor,
+                            selectionRequest: _floorSelectionRequest,
+                            visibleRouteEdgeIds:
+                                _navigationController.routeResult?.edgeIds
+                                    .toSet() ??
+                                const <String>{},
+                            // Selected endpoints are useful before navigation
+                            // begins. Route edges remain empty until the user
+                            // explicitly calculates the route.
+                            routeStartNode:
+                                _navigationController.currentLocation?.node,
+                            routeDestinationNode:
+                                _navigationController.destination?.node,
+                          ),
+                    ),
                   ),
                   if (_showMapDismissLayer)
                     Positioned.fill(
@@ -755,7 +834,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: const SizedBox.expand(),
                       ),
                     ),
-                  if (!_showOngoingClassReminder)
+                  if (!hasActiveRoute && !_showOngoingClassReminder)
                     Positioned(
                       top: 6,
                       left: 7,
@@ -770,7 +849,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                     ),
-                  if (_showOngoingClassReminder)
+                  if (!hasActiveRoute && _showOngoingClassReminder)
                     Positioned(
                       top: 0,
                       left: 0,
@@ -781,6 +860,29 @@ class _HomeScreenState extends State<HomeScreen> {
                           _navigateToClass(widget.ongoingClass!);
                         },
                         onDismissed: _dismissOngoingClass,
+                      ),
+                    ),
+                  if (hasActiveRoute &&
+                      _navigationController.instructions.isNotEmpty)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: HomeRouteInstructionsPanel(
+                        key: ValueKey(
+                          'route-instructions-'
+                          '${activeRoute.nodeIds.first}-'
+                          '${activeRoute.nodeIds.last}',
+                        ),
+                        instructions: _navigationController.instructions,
+                        onStopPressed: _endNavigation,
+                        onInteractionChanged:
+                            _handleInstructionInteractionChanged,
+                        onSchedulePressed: _isRegisteredUser
+                            ? () {
+                                unawaited(_openTimetable());
+                              }
+                            : null,
                       ),
                     ),
                   AnimatedPositioned(
@@ -868,9 +970,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 onNavigatePressed: _navigateToClass,
                                 onViewAllPressed: () {
                                   _collapseNavigationPanel();
-                                  Navigator.of(
-                                    context,
-                                  ).pushNamed(AppRoutes.timetable);
+                                  unawaited(_openTimetable());
                                 },
                               ),
                       ),

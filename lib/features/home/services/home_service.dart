@@ -11,13 +11,21 @@ class HomeService {
 
   final SupabaseClient _client;
 
-  /// Returns the class currently in progress and the user's
-  /// remaining saved classes for today.
+  /// Returns the class currently in progress and the user's next saved
+  /// classes.
+  ///
+  /// The old implementation only returned classes remaining TODAY. That made
+  /// the "Next Classes" section look broken on weekends and after the final
+  /// class of the day. This version still detects an ongoing class for today,
+  /// but the next-class list is sorted by each timetable entry's next weekly
+  /// occurrence.
   Future<HomeScheduleSnapshot> loadTodaySchedule({
     required String userId,
     DateTime? now,
   }) async {
-    if (userId.trim().isEmpty) {
+    final cleanUserId = userId.trim();
+
+    if (cleanUserId.isEmpty) {
       return const HomeScheduleSnapshot();
     }
 
@@ -26,7 +34,7 @@ class HomeService {
     final scheduleRows = await _client
         .from(DatabaseTables.mySchedule)
         .select('timetable_id')
-        .eq('user_id', userId);
+        .eq('user_id', cleanUserId);
 
     final timetableIds = scheduleRows
         .map<int?>((row) {
@@ -54,63 +62,87 @@ class HomeService {
         )
         .inFilter('timetable_id', timetableIds);
 
-    final todayRows = <_TimedTimetableRow>[];
+    final validRows = <_TimedTimetableRow>[];
 
     for (final rawRow in timetableRows) {
       final row = Map<String, dynamic>.from(rawRow);
-
-      if (!_isSameWeekday(row['day'], currentTime.weekday)) {
-        continue;
-      }
-
+      final timetableId = row['timetable_id']?.toString().trim();
+      final dayNumber = _dayNumber(row['day']);
       final startMinutes = _timeToMinutes(row['start_time']);
-
       final endMinutes = _timeToMinutes(row['end_time']);
 
-      final timetableId = row['timetable_id']?.toString().trim();
-
-      if (startMinutes == null ||
-          endMinutes == null ||
-          timetableId == null ||
-          timetableId.isEmpty) {
+      if (timetableId == null ||
+          timetableId.isEmpty ||
+          dayNumber == null ||
+          startMinutes == null ||
+          endMinutes == null) {
         continue;
       }
 
-      todayRows.add(
+      validRows.add(
         _TimedTimetableRow(
           row: row,
+          dayNumber: dayNumber,
           startMinutes: startMinutes,
           endMinutes: endMinutes,
         ),
       );
     }
 
-    todayRows.sort(
-      (first, second) => first.startMinutes.compareTo(second.startMinutes),
-    );
+    if (validRows.isEmpty) {
+      return const HomeScheduleSnapshot();
+    }
 
     final nowMinutes = currentTime.hour * 60 + currentTime.minute;
-
     OngoingClassModel? ongoingClass;
 
-    final nextClasses = <OngoingClassModel>[];
-
-    for (final timedRow in todayRows) {
-      final isOngoing = timedRow.isOngoingAt(nowMinutes);
-
-      final isUpcoming = timedRow.startsAfter(nowMinutes);
-
-      if (!isOngoing && !isUpcoming) {
+    for (final timedRow in validRows) {
+      if (timedRow.dayNumber != currentTime.weekday ||
+          !timedRow.isOngoingAt(nowMinutes)) {
         continue;
       }
 
-      final classModel = await _createClassModel(timedRow);
+      ongoingClass = await _createClassModel(timedRow);
+      break;
+    }
 
-      if (isOngoing && ongoingClass == null) {
-        ongoingClass = classModel;
-      } else if (isUpcoming) {
-        nextClasses.add(classModel);
+    final upcomingRows = <_UpcomingTimetableRow>[];
+
+    for (final timedRow in validRows) {
+      final isCurrentOngoingClass =
+          timedRow.dayNumber == currentTime.weekday &&
+          timedRow.isOngoingAt(nowMinutes);
+
+      if (isCurrentOngoingClass) {
+        continue;
       }
+
+      final nextOccurrence = timedRow.nextOccurrenceAt(currentTime);
+
+      if (nextOccurrence == null) {
+        continue;
+      }
+
+      upcomingRows.add(
+        _UpcomingTimetableRow(
+          timedRow: timedRow,
+          nextOccurrence: nextOccurrence,
+        ),
+      );
+    }
+
+    upcomingRows.sort(
+      (first, second) =>
+          first.nextOccurrence.compareTo(second.nextOccurrence),
+    );
+
+    // The home sheet is a preview. "View All" already opens the complete
+    // timetable, so showing the nearest four classes keeps the home panel
+    // useful without turning it into another timetable screen.
+    final nextClasses = <OngoingClassModel>[];
+
+    for (final upcoming in upcomingRows.take(4)) {
+      nextClasses.add(await _createClassModel(upcoming.timedRow));
     }
 
     return HomeScheduleSnapshot(
@@ -133,7 +165,6 @@ class HomeService {
     _TimedTimetableRow timedRow,
   ) async {
     final row = timedRow.row;
-
     final roomNodeId = row['room_node_id']?.toString().trim() ?? '';
 
     String? floorId;
@@ -147,7 +178,6 @@ class HomeService {
           .maybeSingle();
 
       floorId = node?['floor_id']?.toString();
-
       nodeLabel = node?['label']?.toString();
     }
 
@@ -159,10 +189,11 @@ class HomeService {
       startMinutes: timedRow.startMinutes,
       endMinutes: timedRow.endMinutes,
       floorLabel: _formatFloorLabel(floorId, roomNodeId),
+      dayLabel: _formatDayLabel(timedRow.dayNumber),
     );
   }
 
-  bool _isSameWeekday(Object? rawDay, int weekday) {
+  int? _dayNumber(Object? rawDay) {
     final day = rawDay?.toString().trim().toLowerCase();
 
     const dayNumbers = <String, int>{
@@ -185,7 +216,7 @@ class HomeService {
       'sun': DateTime.sunday,
     };
 
-    return dayNumbers[day] == weekday;
+    return dayNumbers[day];
   }
 
   int? _timeToMinutes(Object? value) {
@@ -211,6 +242,19 @@ class HomeService {
     }
 
     return hours * 60 + minutes;
+  }
+
+  String _formatDayLabel(int weekday) {
+    return switch (weekday) {
+      DateTime.monday => 'Monday',
+      DateTime.tuesday => 'Tuesday',
+      DateTime.wednesday => 'Wednesday',
+      DateTime.thursday => 'Thursday',
+      DateTime.friday => 'Friday',
+      DateTime.saturday => 'Saturday',
+      DateTime.sunday => 'Sunday',
+      _ => '',
+    };
   }
 
   String _formatFloorLabel(String? floorId, String roomNodeId) {
@@ -245,11 +289,13 @@ class HomeService {
 class _TimedTimetableRow {
   const _TimedTimetableRow({
     required this.row,
+    required this.dayNumber,
     required this.startMinutes,
     required this.endMinutes,
   });
 
   final Map<String, dynamic> row;
+  final int dayNumber;
   final int startMinutes;
   final int endMinutes;
 
@@ -261,7 +307,37 @@ class _TimedTimetableRow {
     return currentMinutes >= startMinutes || currentMinutes < endMinutes;
   }
 
-  bool startsAfter(int currentMinutes) {
-    return currentMinutes < startMinutes;
+  DateTime? nextOccurrenceAt(DateTime now) {
+    if (dayNumber < DateTime.monday || dayNumber > DateTime.sunday) {
+      return null;
+    }
+
+    final hour = startMinutes ~/ 60;
+    final minute = startMinutes % 60;
+    final daysAhead = (dayNumber - now.weekday + 7) % 7;
+
+    var occurrence = DateTime(
+      now.year,
+      now.month,
+      now.day + daysAhead,
+      hour,
+      minute,
+    );
+
+    if (!occurrence.isAfter(now)) {
+      occurrence = occurrence.add(const Duration(days: 7));
+    }
+
+    return occurrence;
   }
+}
+
+class _UpcomingTimetableRow {
+  const _UpcomingTimetableRow({
+    required this.timedRow,
+    required this.nextOccurrence,
+  });
+
+  final _TimedTimetableRow timedRow;
+  final DateTime nextOccurrence;
 }

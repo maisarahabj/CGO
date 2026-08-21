@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/issue_report_model.dart';
-import '../models/issue_report_status.dart';
 import '../services/issue_report_service.dart';
 
 /// Holds the current user's issue report list + loading/error state.
@@ -22,8 +21,10 @@ class IssueReportController extends ChangeNotifier {
   bool get isSubmitting => _isSubmitting;
   String? get error => _error;
 
-  List<IssueReportModel> get activeReports => _reports.where((r) => r.status.isActive).toList();
-  List<IssueReportModel> get historyReports => _reports.where((r) => !r.status.isActive).toList();
+  List<IssueReportModel> get activeReports =>
+      _reports.where((r) => r.status.isActive).toList();
+  List<IssueReportModel> get historyReports =>
+      _reports.where((r) => !r.status.isActive).toList();
 
   Future<void> loadReports() async {
     _isLoading = true;

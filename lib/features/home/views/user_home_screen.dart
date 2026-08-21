@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../auth/controllers/auth_controller.dart';
 import '../../notifications/controllers/notification_controller.dart';
@@ -24,7 +25,6 @@ class UserHomeScreen extends StatefulWidget {
 
 class _UserHomeScreenState extends State<UserHomeScreen> {
   final HomeService _homeService = HomeService();
-
   final NotificationController _notificationController =
       NotificationController();
 
@@ -70,7 +70,9 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   }
 
   Future<void> _refreshSchedule() async {
-    final userId = widget.authController.profile?.id;
+    // my_schedule is written using Supabase Auth's user UUID. Use that same
+    // identity source here instead of relying only on the profile row.
+    final userId = Supabase.instance.client.auth.currentUser?.id.trim();
 
     if (userId == null || userId.isEmpty) {
       if (mounted) {
@@ -79,7 +81,6 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
           _nextClasses = const [];
         });
       }
-
       return;
     }
 
@@ -93,7 +94,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
         _nextClasses = schedule.nextClasses;
       });
     } catch (error, stackTrace) {
-      debugPrint('Could not load today\'s classes: $error');
+      debugPrint('Could not load home schedule: $error');
       debugPrintStack(stackTrace: stackTrace);
 
       if (mounted) {
@@ -125,6 +126,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       nextClasses: _nextClasses,
       unreadNotificationCount: _notificationController.unreadCount,
       onNotificationRefresh: _refreshNotifications,
+      onScheduleRefresh: _refreshSchedule,
       onSessionAction: widget.authController.signOut,
       initialDestinationNodeId: widget.initialDestinationNodeId,
     );

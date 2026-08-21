@@ -34,8 +34,9 @@ class HomeSplineMap extends StatefulWidget {
   /// in Spline, for example E_GN0_GN1.
   final Set<String> visibleRouteEdgeIds;
 
-  /// Endpoints are sent to Spline only while a calculated route is active.
-  /// Their coordinates position the Spline-owned route marker groups.
+  /// Selected endpoints are sent to Spline as soon as they become available.
+  /// Each marker is independent, so either one can appear before the route is
+  /// calculated or before the other location has been selected.
   final NodeModel? routeStartNode;
   final NodeModel? routeDestinationNode;
 
@@ -665,14 +666,12 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
   Future<void> _sendRouteEndpoints() async {
     if (!_isSplineReady) return;
 
-    final start = _encodeRouteEndpoint(widget.routeStartNode);
-    final destination = _encodeRouteEndpoint(widget.routeDestinationNode);
-
-    // Treat the endpoint markers as one pair. If either node has missing
-    // coordinates, hide both instead of leaving only one marker visible.
-    final hasCompleteEndpointPair = start != null && destination != null;
-    final startPayload = hasCompleteEndpointPair ? start : null;
-    final destinationPayload = hasCompleteEndpointPair ? destination : null;
+    // Markers describe selected locations, not whether a route already
+    // exists. Null hides only the corresponding unselected marker.
+    final startPayload = _encodeRouteEndpoint(widget.routeStartNode);
+    final destinationPayload = _encodeRouteEndpoint(
+      widget.routeDestinationNode,
+    );
 
     debugPrint(
       'Spline route endpoints sending: '

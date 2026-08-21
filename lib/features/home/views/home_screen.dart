@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _selectedFloor = 'L8';
   int _floorSelectionRequest = 0;
   bool _isNavigationPanelExpanded = false;
-  bool _isInstructionListInteracting = false;
+  bool _areRouteInstructionsExpanded = false;
   String? _dismissedTimetableId;
   bool _initialDestinationApplied = false;
   Timer? _messageBannerTimer;
@@ -392,17 +392,17 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         if (_navigationController.routeResult == null) {
-          _isInstructionListInteracting = false;
+          _areRouteInstructionsExpanded = false;
         }
       });
     }
   }
 
-  void _handleInstructionInteractionChanged(bool isInteracting) {
-    if (!mounted || _isInstructionListInteracting == isInteracting) return;
+  void _handleInstructionExpansionChanged(bool isExpanded) {
+    if (!mounted || _areRouteInstructionsExpanded == isExpanded) return;
 
     setState(() {
-      _isInstructionListInteracting = isInteracting;
+      _areRouteInstructionsExpanded = isExpanded;
     });
   }
 
@@ -799,32 +799,42 @@ class _HomeScreenState extends State<HomeScreen> {
                 panelHeight + _navigationPanelBottomOffset + 12,
                 maximumSideBottom,
               );
+              final instructionCount =
+                  _navigationController.instructions.length;
+              final maximumInstructionRows =
+                  _areRouteInstructionsExpanded ? 6 : 2;
+              final visibleInstructionRows = math.min(
+                instructionCount,
+                maximumInstructionRows,
+              );
+              final routeInstructionPanelHeight =
+                  hasActiveRoute && instructionCount > 0
+                  ? (visibleInstructionRows * 58.0) +
+                        (_areRouteInstructionsExpanded ? 85.0 : 40.0)
+                  : 0.0;
 
               return Stack(
                 children: [
                   Positioned.fill(
-                    child: AbsorbPointer(
-                      // A native WebView can otherwise interpret the same
-                      // finger movement used to scroll the overlaid list.
-                      absorbing: _isInstructionListInteracting,
-                      child:
-                          widget.mapContent ??
-                          HomeSplineMap(
-                            selectedFloor: _selectedFloor,
-                            selectionRequest: _floorSelectionRequest,
-                            visibleRouteEdgeIds:
-                                _navigationController.routeResult?.edgeIds
-                                    .toSet() ??
-                                const <String>{},
-                            // Selected endpoints are useful before navigation
-                            // begins. Route edges remain empty until the user
-                            // explicitly calculates the route.
-                            routeStartNode:
-                                _navigationController.currentLocation?.node,
-                            routeDestinationNode:
-                                _navigationController.destination?.node,
-                          ),
-                    ),
+                    child:
+                        widget.mapContent ??
+                        HomeSplineMap(
+                          selectedFloor: _selectedFloor,
+                          selectionRequest: _floorSelectionRequest,
+                          topGestureExclusionHeight:
+                              routeInstructionPanelHeight,
+                          visibleRouteEdgeIds:
+                              _navigationController.routeResult?.edgeIds
+                                  .toSet() ??
+                              const <String>{},
+                          // Selected endpoints are useful before navigation
+                          // begins. Route edges remain empty until the user
+                          // explicitly calculates the route.
+                          routeStartNode:
+                              _navigationController.currentLocation?.node,
+                          routeDestinationNode:
+                              _navigationController.destination?.node,
+                        ),
                   ),
                   if (_showMapDismissLayer)
                     Positioned.fill(
@@ -876,8 +886,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         instructions: _navigationController.instructions,
                         onStopPressed: _endNavigation,
-                        onInteractionChanged:
-                            _handleInstructionInteractionChanged,
+                        onExpandedChanged:
+                            _handleInstructionExpansionChanged,
                         onSchedulePressed: _isRegisteredUser
                             ? () {
                                 unawaited(_openTimetable());

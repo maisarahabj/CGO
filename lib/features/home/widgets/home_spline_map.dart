@@ -18,6 +18,7 @@ class HomeSplineMap extends StatefulWidget {
     this.visibleRouteEdgeIds = const <String>{},
     this.routeStartNode,
     this.routeDestinationNode,
+    this.topGestureExclusionHeight = 0,
     super.key,
   });
 
@@ -39,6 +40,11 @@ class HomeSplineMap extends StatefulWidget {
   /// calculated or before the other location has been selected.
   final NodeModel? routeStartNode;
   final NodeModel? routeDestinationNode;
+
+  /// Height, in Flutter logical pixels, covered by a Flutter overlay at the
+  /// top of the WebView. The HTML layer consumes native WebView gestures only
+  /// inside this area, leaving the exposed map fully interactive.
+  final double topGestureExclusionHeight;
 
   @override
   State<HomeSplineMap> createState() => _HomeSplineMapState();
@@ -84,6 +90,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       height: 100%;
       margin: 0;
       overflow: hidden;
+      position: relative;
       background: #E8E8E8;
     }
 
@@ -93,16 +100,32 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       display: block;
       touch-action: none;
     }
+
+    #flutterGestureShield {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 0;
+      z-index: 2147483647;
+      pointer-events: auto;
+      touch-action: none;
+      background: transparent;
+    }
   </style>
 </head>
 
 <body>
   <canvas id="canvas3d"></canvas>
+  <div id="flutterGestureShield" aria-hidden="true"></div>
 
   <script type="module">
     import { Application } from '$_runtimeUrl';
 
     const canvas = document.getElementById('canvas3d');
+    const flutterGestureShield = document.getElementById(
+      'flutterGestureShield'
+    );
     const spline = new Application(canvas);
 
     const routeBaseState = 'Base State';
@@ -117,6 +140,40 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     }
 
     const visibleRouteEdges = new Set();
+
+    function consumeShieldGesture(event) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+
+    [
+      'pointerdown',
+      'pointermove',
+      'pointerup',
+      'pointercancel',
+      'touchstart',
+      'touchmove',
+      'touchend',
+      'touchcancel',
+      'wheel'
+    ].forEach(function(eventName) {
+      flutterGestureShield.addEventListener(
+        eventName,
+        consumeShieldGesture,
+        { capture: true, passive: false }
+      );
+    });
+
+    window.setTopGestureExclusionHeight = function(height) {
+      const requestedHeight = Number(height);
+      const safeHeight = Number.isFinite(requestedHeight)
+        ? Math.max(0, Math.ceil(requestedHeight))
+        : 0;
+
+      flutterGestureShield.style.height = safeHeight + 'px';
+      sendToFlutter('gesture-shield:' + safeHeight);
+      return true;
+    };
 
     function findRouteEdge(edgeId) {
       return spline.findObjectByName(edgeId);
@@ -473,6 +530,12 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     if ((startChanged || destinationChanged) && _isSplineReady) {
       unawaited(_sendRouteEndpoints());
     }
+
+    if (oldWidget.topGestureExclusionHeight !=
+            widget.topGestureExclusionHeight &&
+        _isSplineReady) {
+      unawaited(_sendTopGestureExclusionHeight());
+    }
   }
 
   void _handleSplineMessage(JavaScriptMessage message) {
@@ -492,6 +555,11 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       unawaited(_sendPendingFloor());
       unawaited(_sendRouteEdges());
       unawaited(_sendRouteEndpoints());
+      unawaited(_sendTopGestureExclusionHeight());
+      return;
+    }
+
+    if (value.startsWith('gesture-shield:')) {
       return;
     }
 
@@ -690,6 +758,27 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
       setState(() {
         _loadError = 'Unable to position the route markers: $error';
+      });
+    }
+  }
+
+  Future<void> _sendTopGestureExclusionHeight() async {
+    if (!_isSplineReady) return;
+
+    final requestedHeight = widget.topGestureExclusionHeight;
+    final safeHeight = requestedHeight.isFinite && requestedHeight > 0
+        ? requestedHeight
+        : 0.0;
+
+    try {
+      await _controller.runJavaScript(
+        'window.setTopGestureExclusionHeight($safeHeight);',
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadError = 'Unable to isolate map gestures: $error';
       });
     }
   }

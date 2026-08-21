@@ -11,14 +11,14 @@ class HomeRouteInstructionsPanel extends StatefulWidget {
     required this.instructions,
     required this.onStopPressed,
     this.onSchedulePressed,
-    this.onInteractionChanged,
+    this.onExpandedChanged,
     super.key,
   });
 
   final List<NavigationInstruction> instructions;
   final VoidCallback onStopPressed;
   final VoidCallback? onSchedulePressed;
-  final ValueChanged<bool>? onInteractionChanged;
+  final ValueChanged<bool>? onExpandedChanged;
 
   @override
   State<HomeRouteInstructionsPanel> createState() =>
@@ -29,32 +29,28 @@ class _HomeRouteInstructionsPanelState
     extends State<HomeRouteInstructionsPanel> {
   static const Color _campusBlue = Color(0xFF2A77B4);
   static const Color _subtitleColor = Color(0xFF69747E);
+  static const Duration _resizeDuration = Duration(milliseconds: 240);
 
   bool _isExpanded = false;
   double _verticalDragDistance = 0;
-  final Set<int> _activeListPointers = <int>{};
-
-  void _handleListPointerDown(int pointer) {
-    if (!_activeListPointers.add(pointer)) return;
-
-    if (_activeListPointers.length == 1) {
-      widget.onInteractionChanged?.call(true);
-    }
-  }
-
-  void _handleListPointerFinished(int pointer) {
-    if (!_activeListPointers.remove(pointer)) return;
-
-    if (_activeListPointers.isEmpty) {
-      widget.onInteractionChanged?.call(false);
-    }
-  }
 
   void _setExpanded(bool value) {
     if (_isExpanded == value) return;
 
     setState(() {
       _isExpanded = value;
+    });
+
+    if (value) {
+      widget.onExpandedChanged?.call(true);
+      return;
+    }
+
+    // Keep the larger WebView shield until the collapse animation finishes.
+    Future<void>.delayed(_resizeDuration, () {
+      if (mounted && !_isExpanded) {
+        widget.onExpandedChanged?.call(false);
+      }
     });
   }
 
@@ -73,7 +69,7 @@ class _HomeRouteInstructionsPanelState
       borderRadius: const BorderRadius.vertical(bottom: Radius.circular(18)),
       clipBehavior: Clip.antiAlias,
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 240),
+        duration: _resizeDuration,
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: GestureDetector(
@@ -104,31 +100,19 @@ class _HomeRouteInstructionsPanelState
                   constraints: BoxConstraints(
                     maxHeight: _isExpanded ? 348 : 116,
                   ),
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (event) {
-                      _handleListPointerDown(event.pointer);
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    physics: _isExpanded
+                        ? const BouncingScrollPhysics()
+                        : const NeverScrollableScrollPhysics(),
+                    padding: EdgeInsets.zero,
+                    itemCount: visibleInstructions.length,
+                    itemBuilder: (context, index) {
+                      return _InstructionRow(
+                        instruction: visibleInstructions[index],
+                        isLast: index == visibleInstructions.length - 1,
+                      );
                     },
-                    onPointerUp: (event) {
-                      _handleListPointerFinished(event.pointer);
-                    },
-                    onPointerCancel: (event) {
-                      _handleListPointerFinished(event.pointer);
-                    },
-                    child: ListView.builder(
-                      shrinkWrap: true,
-                      physics: _isExpanded
-                          ? const BouncingScrollPhysics()
-                          : const NeverScrollableScrollPhysics(),
-                      padding: EdgeInsets.zero,
-                      itemCount: visibleInstructions.length,
-                      itemBuilder: (context, index) {
-                        return _InstructionRow(
-                          instruction: visibleInstructions[index],
-                          isLast: index == visibleInstructions.length - 1,
-                        );
-                      },
-                    ),
                   ),
                 ),
                 if (_isExpanded) ...[

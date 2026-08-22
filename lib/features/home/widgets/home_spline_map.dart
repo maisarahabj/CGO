@@ -16,6 +16,7 @@ class HomeSplineMap extends StatefulWidget {
     required this.selectedFloor,
     required this.selectionRequest,
     this.visibleRouteEdgeIds = const <String>{},
+    this.visibleFloorNames = const <String>{},
     this.routeStartNode,
     this.routeDestinationNode,
     this.topGestureExclusionHeight = 0,
@@ -34,6 +35,13 @@ class HomeSplineMap extends StatefulWidget {
   /// Each value must exactly match an edge_id in Supabase and an object name
   /// in Spline, for example E_GN0_GN1.
   final Set<String> visibleRouteEdgeIds;
+
+  /// Spline floor groups that should remain visible while a route is active.
+  ///
+  /// An empty set means normal browsing and restores every CampusGO floor.
+  /// HomeScreen fills this from RouteResult.nodeIds only after navigation has
+  /// actually been calculated, so choosing locations alone never hides floors.
+  final Set<String> visibleFloorNames;
 
   /// Selected endpoints are sent to Spline as soon as they become available.
   /// Each marker is independent, so either one can appear before the route is
@@ -56,6 +64,19 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
   static const String _runtimeUrl =
       'https://unpkg.com/@splinetool/runtime@1.12.98/build/runtime.js';
+
+  /// Must match the overview camera name in the published Spline scene.
+  ///
+  /// Spline controls its initial camera through Export -> Play Settings ->
+  /// Camera. Set that option to Camera_Overview before publishing the scene.
+  static const String _overviewCameraName = 'Camera_Overview';
+
+  /// Optional Spline helper for explicitly replaying the overview camera.
+  ///
+  /// If this object exists, add a Mouse Up -> Switch Camera event that targets
+  /// Camera_Overview. The app will replay that event once on startup. When the
+  /// helper is absent, the overview configured in Play Settings is preserved.
+  static const String _overviewCameraTriggerName = 'OVERVIEW_CAMERA_TRIGGER';
 
   /// Must be slightly longer than the camera transition configured in Spline.
   /// While a transition is running, the newest requested floor is queued.
@@ -132,6 +153,8 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     const routeVisibleState = 'ROUTE_VISIBLE';
     const startMarkerName = 'ROUTE_START_MARKER';
     const destinationMarkerName = 'ROUTE_DESTINATION_MARKER';
+    const overviewCameraName = '$_overviewCameraName';
+    const overviewCameraTriggerName = '$_overviewCameraTriggerName';
 
     function sendToFlutter(message) {
       if (window.SplineBridge) {
@@ -139,7 +162,87 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       }
     }
 
+    const routeEdgeObjects = new Map();
     const visibleRouteEdges = new Set();
+
+    const campusFloorNames = ['L9', 'L8', 'L6', 'L3', 'L1', 'G'];
+    const floorObjects = new Map();
+
+    function indexFloorObjects() {
+      floorObjects.clear();
+
+      campusFloorNames.forEach(function(floorName) {
+        const floorObject = spline.findObjectByName(floorName);
+
+        if (floorObject) {
+          floorObjects.set(floorName, floorObject);
+        } else {
+          sendToFlutter('missing-floor-visibility:' + floorName);
+        }
+      });
+
+      sendToFlutter('floor-indexed:' + floorObjects.size);
+    }
+
+    window.setVisibleFloors = function(floorNames) {
+      if (!Array.isArray(floorNames)) {
+        sendToFlutter('floor-visibility-error:Expected an array of floor names.');
+        return false;
+      }
+
+      const requestedFloors = new Set(
+        floorNames
+          .map(function(floorName) {
+            return String(floorName).trim();
+          })
+          .filter(function(floorName) {
+            return campusFloorNames.includes(floorName);
+          })
+      );
+
+      /*
+       * Empty means no active route. Restore every floor for normal browsing.
+       * A non-empty set means navigation is active, so only the floor groups
+       * represented by RouteResult.nodeIds remain visible. route_edges and
+       * route markers are top-level Spline objects and are not affected.
+       */
+      const showAllFloors = requestedFloors.size === 0;
+
+      campusFloorNames.forEach(function(floorName) {
+        const floorObject = floorObjects.get(floorName);
+
+        if (!floorObject) {
+          return;
+        }
+
+        if (showAllFloors || requestedFloors.has(floorName)) {
+          floorObject.show();
+        } else {
+          floorObject.hide();
+        }
+      });
+
+      spline.requestRender();
+
+      sendToFlutter(
+        'floors-updated:' +
+          (showAllFloors ? 'ALL' : Array.from(requestedFloors).join(','))
+      );
+
+      return true;
+    };
+
+    function indexRouteEdges() {
+      routeEdgeObjects.clear();
+
+      spline.getAllObjects().forEach(function(object) {
+        if (object.name && object.name.startsWith('E_')) {
+          routeEdgeObjects.set(object.name, object);
+        }
+      });
+
+      sendToFlutter('route-edge-indexed:' + routeEdgeObjects.size);
+    }
 
     function consumeShieldGesture(event) {
       event.preventDefault();
@@ -176,7 +279,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     };
 
     function findRouteEdge(edgeId) {
-      return spline.findObjectByName(edgeId);
+      return routeEdgeObjects.get(edgeId) ?? null;
     }
 
     function setRouteEdgeState(edgeObject, stateName) {
@@ -212,13 +315,16 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       );
 
       /*
-       * Reset every Spline route-edge object before showing the new route.
-       * This also clears an edge that was made visible by a manual R-key test
-       * and was therefore never recorded in visibleRouteEdges.
+       * Reset only the edges that CampusGO made visible for the previous route.
+       *
+       * The full scene is indexed once after load, so route replacement does
+       * not repeatedly traverse every object in the Spline scene.
        */
-      spline.getAllObjects().forEach(function(object) {
-        if (object.name && object.name.startsWith('E_')) {
-          setRouteEdgeState(object, routeBaseState);
+      visibleRouteEdges.forEach(function(edgeId) {
+        const edgeObject = findRouteEdge(edgeId);
+
+        if (edgeObject) {
+          setRouteEdgeState(edgeObject, routeBaseState);
         }
       });
 
@@ -331,14 +437,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
      * This does NOT block pointer input on the canvas, therefore orbit, pan
      * and pinch/zoom continue to work normally.
      */
-    const flutterControlledFloorNames = [
-      'L9',
-      'L8',
-      'L6',
-      'L3',
-      'L1',
-      'G',
-    ];
+    const flutterControlledFloorNames = campusFloorNames;
 
     const originalFloorMouseUpDispatches = new WeakMap();
 
@@ -460,6 +559,107 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       return true;
     };
 
+    function recognizedActiveCameraName() {
+      /*
+       * Reading the active camera is diagnostic only. Never overwrite
+       * spline._camera, because Spline must continue to own orbit, pan,
+       * pinch/zoom and authored Switch Camera transitions.
+       *
+       * Runtime versions do not expose the active authored camera name in
+       * exactly the same place, so accept only known CampusGO camera names.
+       */
+      const knownNames = new Set([
+        overviewCameraName,
+        'Camera_L9',
+        'Camera_L8',
+        'Camera_L6',
+        'Camera_L3',
+        'Camera_L1',
+        'Camera_G',
+      ]);
+
+      const candidates = [
+        spline._camera?.name,
+        spline._camera?.camera?.name,
+        spline._camera?.object?.name,
+        spline._camera?.parent?.name,
+        spline.camera?.name,
+      ];
+
+      for (const candidate of candidates) {
+        if (typeof candidate === 'string' && knownNames.has(candidate)) {
+          return candidate;
+        }
+      }
+
+      return null;
+    }
+
+    function activateStartupCamera() {
+      const overviewCamera = spline.findObjectByName(overviewCameraName);
+
+      if (!overviewCamera) {
+        /*
+         * Never fall back to HomeScreen's initial selected floor here.
+         *
+         * HomeScreen currently initializes its floor selector to L8, so a
+         * startup floor fallback would override the intended overview and
+         * reproduce the zoomed-in Level 8 startup.
+         */
+        sendToFlutter('startup-camera-missing:' + overviewCameraName);
+        return false;
+      }
+
+      const overviewTrigger = spline.findObjectByName(
+        overviewCameraTriggerName
+      );
+
+      if (overviewTrigger) {
+        if (replayMouseUpEvent(overviewTrigger)) {
+          sendToFlutter(
+            'startup-camera-active:' + overviewCameraName + ':event'
+          );
+          return true;
+        }
+
+        sendToFlutter(
+          'startup-camera-trigger-no-event:' + overviewCameraTriggerName
+        );
+      }
+
+      const activeCameraName = recognizedActiveCameraName();
+
+      if (activeCameraName === overviewCameraName) {
+        sendToFlutter(
+          'startup-camera-active:' + overviewCameraName + ':play-settings'
+        );
+        return true;
+      }
+
+      if (activeCameraName) {
+        /*
+         * Diagnose a wrong exported camera, but do not replace it with L8 or
+         * any other floor. The lowest-risk startup source of truth is Spline's
+         * Export -> Play Settings camera.
+         */
+        sendToFlutter(
+          'startup-camera-wrong-default:' +
+            activeCameraName + ':expected:' + overviewCameraName
+        );
+        return false;
+      }
+
+      /*
+       * Some runtime builds do not expose the authored active camera name
+       * through the private diagnostic fields above. In that case the code
+       * deliberately leaves the exported Play Settings camera untouched.
+       */
+      sendToFlutter(
+        'startup-camera-unverified:expected:' + overviewCameraName
+      );
+      return true;
+    }
+
     spline
       .load('$_sceneUrl')
       .then(function() {
@@ -467,7 +667,10 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
          * Disable the visible floor objects' physical Mouse Up camera
          * switches before Flutter receives the ready signal.
          */
+        indexFloorObjects();
         installFlutterOnlyFloorMouseUpGuards();
+        indexRouteEdges();
+        activateStartupCamera();
 
         const startMarker = spline.findObjectByName(startMarkerName);
         const destinationMarker = spline.findObjectByName(
@@ -500,7 +703,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         onMessageReceived: _handleSplineMessage,
       );
 
-    unawaited(_loadFreshSplineScene());
+    unawaited(_loadSplineScene());
   }
 
   @override
@@ -518,6 +721,12 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     if (!setEquals(oldWidget.visibleRouteEdgeIds, widget.visibleRouteEdgeIds)) {
       if (_isSplineReady) {
         unawaited(_sendRouteEdges());
+      }
+    }
+
+    if (!setEquals(oldWidget.visibleFloorNames, widget.visibleFloorNames)) {
+      if (_isSplineReady) {
+        unawaited(_sendVisibleFloors());
       }
     }
 
@@ -553,13 +762,26 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       });
 
       unawaited(_sendPendingFloor());
-      unawaited(_sendRouteEdges());
+
+      if (widget.visibleRouteEdgeIds.isNotEmpty) {
+        unawaited(_sendRouteEdges());
+      }
+
+      // Enforce the Flutter route state after every scene load. Empty restores
+      // all floors; a calculated route sends only its relevant floor groups.
+      unawaited(_sendVisibleFloors());
       unawaited(_sendRouteEndpoints());
       unawaited(_sendTopGestureExclusionHeight());
       return;
     }
 
     if (value.startsWith('gesture-shield:')) {
+      return;
+    }
+
+    if (value.startsWith('startup-camera-')) {
+      // The startup camera diagnostic has already been included in the
+      // SplineBridge debug message printed above.
       return;
     }
 
@@ -586,6 +808,33 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         _loadError =
             'Spline found floor "$floor", but it has no Mouse Up event.';
       });
+      return;
+    }
+
+    if (value.startsWith('floor-indexed:') ||
+        value.startsWith('floors-updated:')) {
+      return;
+    }
+
+    if (value.startsWith('missing-floor-visibility:')) {
+      final floor = value.substring('missing-floor-visibility:'.length);
+
+      setState(() {
+        _loadError = 'Spline could not find the floor group "$floor".';
+      });
+      return;
+    }
+
+    if (value.startsWith('floor-visibility-error:')) {
+      final errorMessage = value.substring('floor-visibility-error:'.length);
+
+      setState(() {
+        _loadError = 'Unable to update floor visibility: $errorMessage';
+      });
+      return;
+    }
+
+    if (value.startsWith('route-edge-indexed:')) {
       return;
     }
 
@@ -688,6 +937,29 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     }
   }
 
+  Future<void> _sendVisibleFloors() async {
+    if (!_isSplineReady) {
+      return;
+    }
+
+    // Empty is intentional: JavaScript interprets it as "show all floors".
+    final floorNames = widget.visibleFloorNames.toList()..sort();
+
+    debugPrint('Spline floor visibility sending: ${jsonEncode(floorNames)}');
+
+    try {
+      await _controller.runJavaScript(
+        'window.setVisibleFloors(${jsonEncode(floorNames)});',
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadError = 'Unable to update route floor visibility: $error';
+      });
+    }
+  }
+
   Future<void> _sendRouteEdges() async {
     if (!_isSplineReady) {
       return;
@@ -783,11 +1055,13 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     }
   }
 
-  Future<void> _loadFreshSplineScene() async {
+  Future<void> _loadSplineScene() async {
     try {
-      await _controller.clearCache();
-      await _controller.clearLocalStorage();
-
+      /*
+       * Do not clear WebView cache or local storage on every HomeSplineMap
+       * creation. The Spline runtime and scene assets are static production
+       * resources and should be allowed to reuse the WebView cache.
+       */
       await _controller.loadHtmlString(
         _splineHtml,
         baseUrl: 'https://prod.spline.design/',

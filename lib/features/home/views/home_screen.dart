@@ -270,7 +270,11 @@ class _HomeScreenState extends State<HomeScreen> {
   /// node-ID fallbacks keep camera focusing reliable if a database later uses
   /// an internal floor ID such as FLOOR_6 instead.
   String? _cameraFloorForLocation(DestinationModel location) {
-    final storedFloorId = location.floorId?.trim();
+    return _cameraFloorForNode(location.node);
+  }
+
+  String? _cameraFloorForNode(NodeModel node) {
+    final storedFloorId = node.floorId?.trim();
 
     if (storedFloorId != null && storedFloorId.isNotEmpty) {
       final normalizedFloorId = storedFloorId.toUpperCase();
@@ -317,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    final normalizedNodeId = location.nodeId.trim().toUpperCase();
+    final normalizedNodeId = node.nodeId.trim().toUpperCase();
 
     for (final floor in _floors) {
       if (normalizedNodeId == floor ||
@@ -328,6 +332,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return null;
+  }
+
+  /// Floors that should remain visible while navigation is active.
+  ///
+  /// CampusGO intentionally keeps only the two endpoint floors visible:
+  /// the user's current-location floor and the destination floor. Intermediate
+  /// floors that Dijkstra passes through are hidden. Route edges remain visible
+  /// because they are controlled separately from the Spline floor groups.
+  Set<String> _navigationEndpointFloors() {
+    final endpointFloors = <String>{};
+
+    final currentLocation = _navigationController.currentLocation;
+    if (currentLocation != null) {
+      final currentFloor = _cameraFloorForLocation(currentLocation);
+      if (currentFloor != null) {
+        endpointFloors.add(currentFloor);
+      }
+    }
+
+    final destination = _navigationController.destination;
+    if (destination != null) {
+      final destinationFloor = _cameraFloorForLocation(destination);
+      if (destinationFloor != null) {
+        endpointFloors.add(destinationFloor);
+      }
+    }
+
+    return endpointFloors;
   }
 
   void _focusMapOnLocation(
@@ -709,6 +741,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final activeRoute = _navigationController.routeResult;
     final activeDestination = _navigationController.destination;
     final hasActiveRoute = activeRoute != null && activeDestination != null;
+    final activeRouteFloors = _navigationEndpointFloors();
+    final visibleFloorSelectorFloors =
+        hasActiveRoute && activeRouteFloors.isNotEmpty
+        ? _floors.where(activeRouteFloors.contains).toList(growable: false)
+        : _floors;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -801,8 +838,9 @@ class _HomeScreenState extends State<HomeScreen> {
               );
               final instructionCount =
                   _navigationController.instructions.length;
-              final maximumInstructionRows =
-                  _areRouteInstructionsExpanded ? 6 : 2;
+              final maximumInstructionRows = _areRouteInstructionsExpanded
+                  ? 6
+                  : 2;
               final visibleInstructionRows = math.min(
                 instructionCount,
                 maximumInstructionRows,
@@ -827,6 +865,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               _navigationController.routeResult?.edgeIds
                                   .toSet() ??
                               const <String>{},
+                          // Empty means normal browsing: every floor remains
+                          // visible. During navigation, only the current-location
+                          // floor and destination floor remain visible. Route
+                          // edges are controlled separately and stay visible.
+                          visibleFloorNames: hasActiveRoute
+                              ? activeRouteFloors
+                              : const <String>{},
                           // Selected endpoints are useful before navigation
                           // begins. Route edges remain empty until the user
                           // explicitly calculates the route.
@@ -886,8 +931,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         instructions: _navigationController.instructions,
                         onStopPressed: _endNavigation,
-                        onExpandedChanged:
-                            _handleInstructionExpansionChanged,
+                        onExpandedChanged: _handleInstructionExpansionChanged,
                         onSchedulePressed: _isRegisteredUser
                             ? () {
                                 unawaited(_openTimetable());
@@ -904,7 +948,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         HomeFloorSelector(
-                          floors: _floors,
+                          floors: visibleFloorSelectorFloors,
                           selectedFloor: _selectedFloor,
                           onFloorSelected: _selectFloor,
                         ),

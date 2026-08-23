@@ -6,6 +6,7 @@ class QrCodeModel {
     this.qrValue,
     this.locationDescription,
     this.status,
+    this.qrImagePath,
   });
 
   final String qrId;
@@ -13,6 +14,7 @@ class QrCodeModel {
   final String? qrValue;
   final String? locationDescription;
   final String? status;
+  final String? qrImagePath;
 
   /// Indicates whether this QR checkpoint may currently be used.
   bool get isActive => status?.toLowerCase() == 'active';
@@ -25,6 +27,7 @@ class QrCodeModel {
       qrValue: json['qr_value'] as String?,
       locationDescription: json['location_description'] as String?,
       status: json['status'] as String?,
+      qrImagePath: json['qr_image_path'] as String?,
     );
   }
 
@@ -36,6 +39,7 @@ class QrCodeModel {
       'qr_value': qrValue,
       'location_description': locationDescription,
       'status': status,
+      'qr_image_path': qrImagePath,
     };
   }
 }

@@ -47,6 +47,36 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
     });
   }
 
+  Future<void> _confirmCancel(BuildContext context, BookingController controller, String bookingId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel Booking?'),
+        content: const Text('Are you sure you want to cancel this booking? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('No, Keep It'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      final success = await controller.cancelBooking(bookingId);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(success ? 'Booking cancelled.' : (controller.error ?? 'Could not cancel booking.'))),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,9 +98,22 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
                                 _NavPill(
                                   label: 'Book a Room',
                                   onTap: () {
+                                    // Pass the SAME already-created controller instance
+                                    // into the pushed route. A plain Navigator.push does
+                                    // not inherit this screen's provider scope (pushed
+                                    // routes attach to the app's root Navigator, not as
+                                    // a widget-tree child of this screen), so without
+                                    // this CreateBookingScreen would throw
+                                    // "Could not find the correct Provider<BookingController>".
+                                    final bookingController = context.read<BookingController>();
                                     Navigator.push(
                                       context,
-                                      MaterialPageRoute(builder: (_) => const CreateBookingScreen()),
+                                      MaterialPageRoute(
+                                        builder: (_) => ChangeNotifierProvider.value(
+                                          value: bookingController,
+                                          child: const CreateBookingScreen(),
+                                        ),
+                                      ),
                                     );
                                   },
                                 ),
@@ -86,7 +129,7 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
                                               .map((b) => BookingCard(
                                                     booking: b,
                                                     roomLabel: controller.roomLabelFor(b.roomNodeId),
-                                                    onCancel: () => controller.cancelBooking(b.bookingId),
+                                                    onCancel: () => _confirmCancel(context, controller, b.bookingId),
                                                   ))
                                               .toList(),
                                         ),

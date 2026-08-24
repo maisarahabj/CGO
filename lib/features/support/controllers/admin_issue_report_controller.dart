@@ -3,7 +3,6 @@ import '../models/issue_report_model.dart';
 import '../models/issue_report_status.dart';
 import '../services/issue_report_service.dart';
 
-
 /// Admin-side issue report state: all reports (optionally filtered by
 /// status), plus updateStatus for review/resolution. Mirrors
 /// AdminBookingController's pattern.
@@ -49,7 +48,11 @@ class AdminIssueReportController extends ChangeNotifier {
   }) async {
     _error = null;
     try {
-      await _service.updateReportStatus(reportId, status: status, adminNotes: adminNotes);
+      await _service.updateReportStatus(
+        reportId,
+        status: status,
+        adminNotes: adminNotes,
+      );
       await loadReports();
       return true;
     } catch (e) {

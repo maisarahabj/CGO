@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../controllers/schedule_controller.dart';
+
 import '../../../app/app_routes.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
+import '../controllers/schedule_controller.dart';
 import '../controllers/timetable_controller.dart';
 import '../models/timetable_model.dart';
 import '../widgets/timetable_entry_card.dart';
@@ -190,45 +193,52 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      toolbarHeight: 64,
+      toolbarHeight: 70,
       backgroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       surfaceTintColor: Colors.white,
       leading: IconButton(
         tooltip: 'Open menu',
+        splashRadius: 22,
         onPressed: () {
           FocusScope.of(context).unfocus();
           _scaffoldKey.currentState?.openDrawer();
         },
-        icon: const Icon(Icons.menu, color: Colors.black87, size: 27),
+        icon: SvgPicture.asset(AppAssets.hamburger, width: 27),
       ),
-      title: RichText(
-        text: const TextSpan(
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
+      title: const FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+            children: [
+              TextSpan(
+                text: 'Campus',
+                style: TextStyle(color: Color(0xFF38358E)),
+              ),
+              TextSpan(
+                text: 'GO',
+                style: TextStyle(color: Color(0xFFFF0000)),
+              ),
+            ],
           ),
-          children: [
-            TextSpan(
-              text: 'Campus',
-              style: TextStyle(color: Color(0xFF342C86)),
-            ),
-            TextSpan(
-              text: 'GO',
-              style: TextStyle(color: Color(0xFFE31919)),
-            ),
-          ],
         ),
       ),
       actions: [
         IconButton(
           tooltip: 'Close',
+          splashRadius: 22,
           onPressed: () {
             Navigator.of(context).maybePop();
           },
-          icon: const Icon(Icons.close, color: Colors.black87, size: 27),
+          icon: SvgPicture.asset(AppAssets.closeButton, width: 23),
         ),
         const SizedBox(width: 4),
       ],
@@ -242,14 +252,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            'assets/features/auth/login_background.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
+          Positioned(
+            left: 0,
+            right: 0,
+            top: -32,
+            height: 180,
+            child: Image.asset(
+              AppAssets.loginBackground,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
+            ),
           ),
-          Container(color: Colors.white.withValues(alpha: 0.10)),
+          Container(color: Colors.white.withValues(alpha: 0.40)),
           Padding(
-            padding: const EdgeInsets.fromLTRB(145, 20, 14, 12),
+            padding: const EdgeInsets.fromLTRB(145, 10, 14, 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -274,24 +290,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     color: Color(0xFF202A31),
                   ),
                 ),
-                const SizedBox(height: 9),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 4,
-                  children: [
-                    _bannerButton(
-                      text: 'CLASS SCHEDULE',
-                      active: true,
-                      onTap: () {},
+                if (!widget.guestMode) ...[
+                  const SizedBox(height: 9),
+                  Align(
+                    alignment: Alignment.center,
+                    child: _gradientBannerButton(
+                      text: 'YOUR BOOKINGS',
+                      onTap: _openBookings,
                     ),
-                    if (!widget.guestMode)
-                      _bannerButton(
-                        text: 'YOUR BOOKINGS',
-                        active: false,
-                        onTap: _openBookings,
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -300,28 +308,44 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
-  Widget _bannerButton({
+  Widget _gradientBannerButton({
     required String text,
-    required bool active,
     required VoidCallback onTap,
+    double horizontalPadding = 12,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? _blue : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _blue),
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3235BD), Color(0xFF7D2C87), Color(0xFFFF2A0A)],
         ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
-            color: active ? Colors.white : _blue,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Center(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontFamily: 'Raleway',
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -346,10 +370,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
               decoration: InputDecoration(
                 hintText:
                     _controller.selectedRoomName ?? 'Search room or class',
-                prefixIcon: const Icon(
-                  Icons.location_on_outlined,
-                  color: Colors.red,
-                  size: 27,
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: SvgPicture.asset(
+                    AppAssets.destinationPin,
+                    width: 24,
+                    height: 24,
+                  ),
                 ),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
@@ -358,7 +385,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           _searchController.clear();
                           _controller.setSearchQuery('');
                         },
-                        icon: const Icon(Icons.close),
+                        icon: SvgPicture.asset(
+                          AppAssets.closeButton,
+                          width: 16,
+                          height: 16,
+                        ),
                       ),
                 filled: true,
                 fillColor: Colors.white,
@@ -404,9 +435,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
                   return ListTile(
                     dense: true,
-                    leading: const Icon(
-                      Icons.meeting_room_outlined,
-                      color: _blue,
+                    leading: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Image.asset(
+                        AppAssets.destinationClassroom,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                     title: Text(
                       entry.roomName ?? 'Room',
@@ -558,14 +593,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: _navigateToRoom,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _blue),
                     minimumSize: const Size(120, 30),
                   ),
-                  child: const Text(
-                    'Navigate Now  >',
+                  icon: SvgPicture.asset(
+                    AppAssets.navPointer,
+                    width: 13,
+                    height: 13,
+                  ),
+                  label: const Text(
+                    'Navigate Now',
                     style: TextStyle(
                       fontFamily: 'Raleway',
                       fontSize: 10,
@@ -940,15 +980,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _bookRoom() {
-  Navigator.of(context).pushNamed(
-    AppRoutes.bookings,
-    arguments: _controller.selectedRoomName,
-  );
-}
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.bookings, arguments: _controller.selectedRoomName);
+  }
 
-void _openBookings() {
-  Navigator.of(context).pushNamed(AppRoutes.bookings);
-}
+  void _openBookings() {
+    Navigator.of(context).pushNamed(AppRoutes.bookings);
+  }
 
   String _shortDay(String day) {
     switch (day) {

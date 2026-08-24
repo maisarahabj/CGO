@@ -1,6 +1,6 @@
-/// Central paths for files already declared in `pubspec.yaml`.
+/// Central paths for the real CampusGO assets included in the project.
 abstract final class AppAssets {
-  // Authentication.
+  // Authentication / shared CampusGO campus artwork.
   static const String loginBackground =
       'assets/features/auth/login_background.png';
 
@@ -19,6 +19,7 @@ abstract final class AppAssets {
   static const String backButton = 'assets/shared/icons/back_button.svg';
   static const String moreRightArrow =
       'assets/shared/icons/more_right_arrow.svg';
+  static const String moreDownArrow = 'assets/shared/icons/more_down_arrow.svg';
 
   // Drawer icons.
   static const String drawerNotification =
@@ -34,15 +35,24 @@ abstract final class AppAssets {
   static const String drawerMap = 'assets/shared/icons/drawer/sidebar_map.svg';
 
   // Home/navigation icons.
+  static const String elevator =
+      'assets/features/navigation/icons/elevator.svg';
+  static const String mapPinLocation =
+      'assets/features/navigation/icons/map_pin_location.svg';
+  static const String navPointer =
+      'assets/features/navigation/icons/nav_pointer.svg';
   static const String scanQr = 'assets/features/navigation/icons/scan_qr.svg';
   static const String currentLocation =
       'assets/features/navigation/icons/search_current_location.svg';
   static const String destinationPin =
       'assets/features/navigation/icons/search_pin_location.svg';
+  static const String stepArrow =
+      'assets/features/navigation/icons/step_arrow.svg';
   static const String wheelchair =
       'assets/features/navigation/icons/wheelchair.svg';
   static const String recenter =
       'assets/features/navigation/icons/recenter.svg';
+  static const String youHere = 'assets/features/navigation/icons/you_here.svg';
 
   // Profile and support.
   static const String profileCamera =
@@ -52,7 +62,7 @@ abstract final class AppAssets {
   static const String helpAndFeedback =
       'assets/features/settings/icons/settings_faq.svg';
 
-  // Destination illustrations used by the active-route summary panel.
+  // Room illustrations.
   static const String destinationClassroom =
       'assets/shared/illustrations/rooms/node_classroom_icon.png';
   static const String destinationFacilities =
@@ -62,11 +72,9 @@ abstract final class AppAssets {
   static const String destinationSurau =
       'assets/shared/illustrations/rooms/node_surau.png';
 
-  // The CURRENT asset filename in the supplied project contains "washsroom".
-  // Keep this exact path unless the file itself is renamed in assets.
+  // The supplied filename contains "washsroom". Keep it unchanged.
   static const String destinationWashroom =
       'assets/shared/illustrations/rooms/node_washsroom.png';
 
-  // Ongoing-class illustration.
   static const String classroomIllustration = destinationClassroom;
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../models/timetable_model.dart';
 
 class ScheduleEntryCard extends StatelessWidget {
@@ -152,7 +154,7 @@ class ScheduleEntryCard extends StatelessWidget {
                         onTap: onNavigate,
                         borderRadius: BorderRadius.circular(16),
                         child: Container(
-                          height: 26,
+                          height: 28,
                           decoration: BoxDecoration(
                             gradient: isOngoing
                                 ? const LinearGradient(
@@ -163,14 +165,26 @@ class ScheduleEntryCard extends StatelessWidget {
                             border: isOngoing ? null : Border.all(color: _blue),
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            'Navigate Now  >',
-                            style: TextStyle(
-                              fontFamily: 'Raleway',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: isOngoing ? Colors.white : _blue,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SvgPicture.asset(
+                                AppAssets.navPointer,
+                                width: 13,
+                                height: 13,
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                'Navigate Now',
+                                style: TextStyle(
+                                  fontFamily: 'Raleway',
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isOngoing ? Colors.white : _blue,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -207,21 +221,15 @@ class ScheduleEntryCard extends StatelessWidget {
   }
 
   Widget _roomIllustration() {
-    // This safely imitates the room thumbnail from the provided UI.
-    // We are intentionally NOT hardcoding a room asset filename until
-    // we know the exact filenames in assets/shared/illustrations/rooms/.
     return Container(
       width: 60,
       height: 60,
+      padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(
         color: const Color(0xFFF1E9D8),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Icon(
-        Icons.meeting_room_outlined,
-        color: Color(0xFFA77836),
-        size: 35,
-      ),
+      child: Image.asset(AppAssets.destinationClassroom, fit: BoxFit.contain),
     );
   }
 

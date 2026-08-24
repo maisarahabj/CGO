@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../controllers/schedule_controller.dart';
 import '../models/timetable_model.dart';
@@ -27,22 +29,18 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   @override
   void initState() {
     super.initState();
-
     _controller = ScheduleController();
-
     _controller.loadSchedule();
   }
 
   @override
   void dispose() {
     _controller.dispose();
-
     super.dispose();
   }
 
   void _closeDrawerThen(VoidCallback action) {
     Navigator.of(context).pop();
-
     action();
   }
 
@@ -71,41 +69,34 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       isRegisteredUser: true,
       profile: null,
       isAccessibilityEnabled: _isAccessibilityEnabled,
-
       onProfilePressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.editProfile);
         });
       },
-
       onNotificationPressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.notifications);
         });
       },
-
       onTimetablePressed: () {
         Navigator.of(context).pop();
       },
-
       onSettingsPressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.settings);
         });
       },
-
       onAccessibilityChanged: (value) {
         setState(() {
           _isAccessibilityEnabled = value;
         });
       },
-
       onHelpPressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.support);
         });
       },
-
       onSessionAction: _handleSessionAction,
     );
   }
@@ -162,44 +153,51 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      toolbarHeight: 64,
+      toolbarHeight: 70,
       backgroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       surfaceTintColor: Colors.white,
       leading: IconButton(
         tooltip: 'Open menu',
+        splashRadius: 22,
         onPressed: () {
           _scaffoldKey.currentState?.openDrawer();
         },
-        icon: const Icon(Icons.menu, color: Colors.black87, size: 27),
+        icon: SvgPicture.asset(AppAssets.hamburger, width: 27),
       ),
-      title: RichText(
-        text: const TextSpan(
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
+      title: const FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+            children: [
+              TextSpan(
+                text: 'Campus',
+                style: TextStyle(color: Color(0xFF38358E)),
+              ),
+              TextSpan(
+                text: 'GO',
+                style: TextStyle(color: Color(0xFFFF0000)),
+              ),
+            ],
           ),
-          children: [
-            TextSpan(
-              text: 'Campus',
-              style: TextStyle(color: Color(0xFF342C86)),
-            ),
-            TextSpan(
-              text: 'GO',
-              style: TextStyle(color: Color(0xFFE31919)),
-            ),
-          ],
         ),
       ),
       actions: [
         IconButton(
           tooltip: 'Close',
+          splashRadius: 22,
           onPressed: () {
             Navigator.of(context).maybePop();
           },
-          icon: const Icon(Icons.close, color: Colors.black87, size: 27),
+          icon: SvgPicture.asset(AppAssets.closeButton, width: 23),
         ),
         const SizedBox(width: 4),
       ],
@@ -207,62 +205,103 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   }
 
   Widget _findRoomBanner() {
-    return Container(
+    return SizedBox(
       height: 155,
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/features/auth/login_background.png'),
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-        ),
-      ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(145, 17, 14, 14),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Find a Room',
-              style: TextStyle(
-                fontFamily: 'Raleway',
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: _blue,
-              ),
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            top: -32,
+            height: 190,
+            child: Image.asset(
+              AppAssets.loginBackground,
+              fit: BoxFit.cover,
+              alignment: Alignment.topCenter,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Find your classroom and keep track '
-              'of your daily schedule all in one place.',
-              style: TextStyle(
-                fontFamily: 'Roboto',
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF27333C),
-              ),
-            ),
-            const SizedBox(height: 9),
-            SizedBox(
-              height: 28,
-              child: FilledButton(
-                onPressed: _openRoomSchedule,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                ),
-                child: const Text(
-                  'VIEW ROOM SCHEDULE',
+          ),
+          Container(color: Colors.white.withValues(alpha: 0.40)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(145, 10, 14, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Find a Room',
                   style: TextStyle(
                     fontFamily: 'Raleway',
-                    fontSize: 8,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
+                    color: _blue,
                   ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Find your classroom and keep track '
+                  'of your daily schedule all in one place.',
+                  style: TextStyle(
+                    fontFamily: 'Roboto',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF27333C),
+                  ),
+                ),
+                const SizedBox(height: 9),
+                _gradientBannerButton(
+                  text: 'VIEW ROOM SCHEDULE',
+                  onTap: _openRoomSchedule,
+                  horizontalPadding: 14,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gradientBannerButton({
+    required String text,
+    required VoidCallback onTap,
+    double horizontalPadding = 12,
+  }) {
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF3235BD), Color(0xFF7D2C87), Color(0xFFFF2A0A)],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.14),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+            child: Center(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontFamily: 'Raleway',
+                  fontSize: 8,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

@@ -48,6 +48,7 @@ flutter:
     - assets/features/auth/login_background.png
     - assets/branding/logos/campusgo_location_pin.png
     - assets/features/navigation/icons/
+    - assets/features/navigation/maps/QR/
     - assets/features/profile/icons/
     - assets/features/settings/icons/
     - assets/shared/icons/

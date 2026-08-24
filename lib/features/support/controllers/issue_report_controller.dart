@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import '../models/issue_report_model.dart';
 import '../services/issue_report_service.dart';

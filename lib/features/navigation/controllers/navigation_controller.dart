@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/navigation_repository.dart';
 import '../models/destination_model.dart';
 import '../models/navigation_graph_data.dart';
 import '../models/route_result.dart';

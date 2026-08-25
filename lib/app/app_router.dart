@@ -12,6 +12,7 @@ import '../features/navigation/models/node_model.dart';
 import '../features/navigation/views/admin_manage_navigation_screen.dart';
 import '../features/navigation/views/admin_qr_checkpoints_screen.dart';
 import '../features/navigation/views/qr_scanner_screen.dart';
+import '../features/navigation/views/visit_history_screen.dart';
 import '../features/notifications/views/admin_manage_notifications_screen.dart';
 import '../features/notifications/views/notifications_screen.dart';
 import '../features/profile/views/admin_manage_users_screen.dart';
@@ -101,6 +102,15 @@ abstract final class AppRouter {
           settings: settings,
           builder: (_) => const SettingsScreen(),
         );
+
+      case AppRoutes.visitHistory:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => authController.role == UserRole.user
+              ? const VisitHistoryScreen()
+              : AuthGate(authController: authController),
+        );
+
       case AppRoutes.aboutCampusGo:
         return MaterialPageRoute<void>(
           settings: settings,

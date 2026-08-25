@@ -37,6 +37,62 @@ class NavigationRepository {
   static const String _qrColumns =
       'qr_id, node_id, qr_value, location_description, status, qr_image_path';
 
+  /// Saves one completed route selection for the currently signed-in user.
+  ///
+  /// visit_id is supplied explicitly because the existing seeded records use
+  /// string IDs such as v001 and the table may not generate its own key.
+  /// Base-36 keeps the timestamp-based ID compact while retaining uniqueness.
+  Future<void> recordVisit({required String destinationNodeId}) async {
+    final normalizedNodeId = destinationNodeId.trim();
+
+    if (normalizedNodeId.isEmpty) {
+      throw const AppException(
+        'A destination is required before saving visit history.',
+      );
+    }
+
+    final currentUser = _client.auth.currentUser;
+
+    if (currentUser == null) {
+      throw const AppException(
+        'Sign in before saving CampusGO visit history.',
+      );
+    }
+
+    final visitedAt = DateTime.now().toUtc();
+    final visitId = 'v${visitedAt.microsecondsSinceEpoch.toRadixString(36)}';
+
+    try {
+      await _client.from(DatabaseTables.visitHistories).insert(
+        <String, dynamic>{
+          'visit_id': visitId,
+          'user_id': currentUser.id,
+          'destination_node_id': normalizedNodeId,
+          'visited_at': visitedAt.toIso8601String(),
+        },
+      );
+
+      debugPrint(
+        'CampusGO visit history saved: '
+        'visit=$visitId, '
+        'user=${currentUser.id}, '
+        'destination=$normalizedNodeId.',
+      );
+    } on PostgrestException catch (error) {
+      debugPrint(
+        'CampusGO visit history insert rejected: '
+        'code=${error.code}, message=${error.message}',
+      );
+
+      throw AppException(
+        'Unable to save visit history: ${error.message}',
+        cause: error,
+      );
+    } catch (error) {
+      throw AppException('Unable to save visit history.', cause: error);
+    }
+  }
+
   /// Loads the floors that exist in the CampusGO map.
   Future<List<FloorModel>> fetchFloors() async {
     try {

@@ -99,8 +99,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _SettingsTile(
                         icon: Icons.history_rounded,
-                        title: 'Navigation history',
-                        onTap: _showNavigationHistoryInfo,
+                        title: 'Visit History',
+                        subtitle: 'Places you have previously visited',
+                        onTap: () {
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.visitHistory,
+                          );
+                        },
                       ),
                       _SettingsTile(
                         icon: Icons.calendar_month_outlined,
@@ -281,43 +286,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showNavigationHistoryInfo() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          title: const Text(
-            'Navigation History',
-            style: TextStyle(
-              fontFamily: 'Raleway',
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF115388),
-            ),
-          ),
-          content: const Text(
-            'Navigation history will contain previously completed CampusGO '
-            'routes where history tracking is available.',
-            style: TextStyle(
-              fontFamily: 'Roboto',
-              fontSize: 14,
-              height: 1.45,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
 
 class _SectionLabel extends StatelessWidget {

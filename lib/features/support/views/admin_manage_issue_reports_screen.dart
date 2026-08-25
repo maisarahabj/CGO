@@ -61,6 +61,20 @@ class _AdminManageIssueReportsScreenState
     'done',
   };
 
+  static const _adminNoteOptions = [
+    'Issue confirmed and fixed',
+    'Issue confirmed, scheduled for repair',
+    'Duplicate of an existing report',
+    'Unable to reproduce the issue',
+    'Insufficient information to investigate',
+    'Not an actual issue — working as intended',
+    'Escalated to facilities/maintenance team',
+    'Escalated to IT/technical team',
+    'Outside the scope of this report type',
+    'Resolved — no further action needed',
+    'Other',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -111,6 +125,7 @@ class _AdminManageIssueReportsScreenState
 
     IssueReportStatus selectedStatus = report.status;
     String? notesError;
+    String? selectedNoteOption;
 
     final result = await showModalBottomSheet<IssueReportStatus>(
       context: context,
@@ -219,7 +234,74 @@ class _AdminManageIssueReportsScreenState
                       ),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
+
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: _borderBlue),
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.07),
+                            blurRadius: 5,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 2,
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: selectedNoteOption,
+                          hint: const Text(
+                            'Select a reason (Compulsory)',
+                            style: TextStyle(
+                              fontFamily: 'Roboto Flex',
+                              color: Color(0xFF9A9A9A),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Color(0xFF868DA6),
+                          ),
+                          items: _adminNoteOptions
+                              .map(
+                                (option) => DropdownMenuItem(
+                                  value: option,
+                                  child: Text(
+                                    option,
+                                    style: const TextStyle(
+                                      fontFamily: 'Roboto Flex',
+                                      fontSize: 14,
+                                      color: _textGrey,
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setSheetState(() {
+                              selectedNoteOption = value;
+                              if (value != null &&
+                                  value != 'Other' &&
+                                  notesController.text.trim().isEmpty) {
+                                notesController.text = '$value. ';
+                                notesController.selection =
+                                    TextSelection.collapsed(
+                                  offset: notesController.text.length,
+                                );
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
 
                     Container(
                       decoration: BoxDecoration(

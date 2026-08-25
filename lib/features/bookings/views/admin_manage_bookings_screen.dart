@@ -9,7 +9,8 @@ import '../models/booking_status.dart';
 import '../services/booking_service.dart';
 
 /// Admin-only screen: review pending booking requests, approve or reject
-/// them (with an optional reason). Filter chips let admin view by status.
+/// them (with a required, categorized reason). Filter chips let admin view
+/// by status.
 ///
 /// UI styling follows the same visual style as AdminManageIssueReportsScreen.
 /// Booking/controller/backend logic is unchanged.
@@ -40,6 +41,27 @@ class _AdminManageBookingsScreenState
   static const _borderBlue = Color(0xFF2A77B4);
   static const _valueGrey = Color(0xFF424242);
 
+  static const _rejectReasonOptions = [
+    
+    'Insufficient details provided',
+    'Policy violation',
+    'Room unavailable for maintenance',
+    'Duplicate request',
+     'Room already booked for this time slot',
+    'Conflicts with a scheduled class',
+    'Room capacity insufficient for stated purpose',
+    'Booking request submitted too close to start time',
+    'Room reserved for maintenance or cleaning',
+    'Session type does not match room facilities',
+    'Missing or unclear purpose in additional info',
+    'Exceeds maximum booking duration allowed',
+    'Duplicate booking request from same user',
+    'Room temporarily closed or under repair',
+    'Requested outside of permitted booking hours',
+    'Other',
+    'Other',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -49,37 +71,276 @@ class _AdminManageBookingsScreenState
     });
   }
 
+  String? _validateRejectReason(String reason) {
+    final trimmed = reason.trim();
+
+    if (trimmed.isEmpty) {
+      return 'Please explain why this booking is being rejected.';
+    }
+
+    final wordCount =
+        trimmed.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+    if (wordCount < 10) {
+      return 'Please write at least 10 words explaining the reason.';
+    }
+
+    return null;
+  }
+
   Future<void> _confirmReject(
     BuildContext context,
     BookingModel booking,
   ) async {
     final reasonController = TextEditingController();
+    String? selectedCategory;
+    String? reasonError;
 
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Reject Booking'),
-        content: TextField(
-          controller: reasonController,
-          decoration: const InputDecoration(
-            labelText: 'Reason (optional)',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE51717),
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.only(
+              left: 24,
+              right: 24,
+              top: 6,
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 30,
             ),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Reject'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: RichText(
+                    text: const TextSpan(
+                      style: TextStyle(
+                        fontFamily: 'Raleway',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 28,
+                      ),
+                      children: [
+                        TextSpan(
+                          text: 'Campus',
+                          style: TextStyle(color: Color(0xFF38358E)),
+                        ),
+                        TextSpan(
+                          text: 'GO',
+                          style: TextStyle(color: Color(0xFFE51717)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Center(
+                  child: Text(
+                    'Reject Booking',
+                    style: TextStyle(
+                      fontFamily: 'Raleway',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                      color: Color(0xFF115388),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(height: 1.2, color: _borderBlue),
+                const SizedBox(height: 18),
+
+                const Text(
+                  'Reason category',
+                  style: TextStyle(
+                    fontFamily: 'Raleway',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: Color(0xFF424242),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border.all(color: _borderBlue),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.11),
+                        blurRadius: 4,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: selectedCategory,
+                      hint: const Text(
+                        'Select a reason',
+                        style: TextStyle(
+                          fontFamily: 'Roboto Flex',
+                          color: Color(0xFF919191),
+                        ),
+                      ),
+                      items: _rejectReasonOptions
+                          .map((r) => DropdownMenuItem(
+                                value: r,
+                                child: Text(
+                                  r,
+                                  style: const TextStyle(
+                                    fontFamily: 'Roboto Flex',
+                                    color: _valueGrey,
+                                  ),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setSheetState(() {
+                          selectedCategory = value;
+                          if (value != null &&
+                              value != 'Other' &&
+                              reasonController.text.trim().isEmpty) {
+                            reasonController.text = '$value. ';
+                            reasonController.selection =
+                                TextSelection.collapsed(
+                              offset: reasonController.text.length,
+                            );
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                const Text(
+                  'Explanation',
+                  style: TextStyle(
+                    fontFamily: 'Raleway',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: Color(0xFF424242),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Required — at least 10 words. This will be shown to the requester.',
+                  style: TextStyle(
+                    fontFamily: 'Roboto Condensed',
+                    fontSize: 12,
+                    color: Color(0xFF747474),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F9FF),
+                    border: Border.all(
+                      color: reasonError != null ? Colors.red : _borderBlue,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto Condensed',
+                      fontSize: 15,
+                      color: _valueGrey,
+                    ),
+                    decoration: const InputDecoration(border: InputBorder.none),
+                    onChanged: (_) {
+                      if (reasonError != null) {
+                        setSheetState(() => reasonError = null);
+                      }
+                    },
+                  ),
+                ),
+                if (reasonError != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    reasonError!,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto Condensed',
+                      fontSize: 12,
+                      color: Colors.red,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 22),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(sheetContext, false),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: _borderBlue),
+                          minimumSize: const Size(0, 46),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontFamily: 'Raleway',
+                            fontWeight: FontWeight.w700,
+                            color: _borderBlue,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          final error =
+                              _validateRejectReason(reasonController.text);
+                          if (error != null) {
+                            setSheetState(() => reasonError = error);
+                            return;
+                          }
+                          Navigator.pop(sheetContext, true);
+                        },
+                        borderRadius: BorderRadius.circular(30),
+                        child: Container(
+                          height: 46,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE51717),
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Text(
+                            'Reject',
+                            style: TextStyle(
+                              fontFamily: 'Raleway',
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
 
@@ -88,18 +349,14 @@ class _AdminManageBookingsScreenState
 
       final success = await controller.rejectBooking(
         booking.bookingId,
-        reason: reasonController.text.trim().isEmpty
-            ? null
-            : reasonController.text.trim(),
+        reason: reasonController.text.trim(),
       );
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              success
-                  ? 'Booking rejected.'
-                  : (controller.error ?? 'Failed.'),
+              success ? 'Booking rejected.' : (controller.error ?? 'Failed.'),
             ),
           ),
         );

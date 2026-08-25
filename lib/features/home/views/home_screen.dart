@@ -930,9 +930,9 @@ class _HomeScreenState extends State<HomeScreen> {
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        // The SafeArea keeps instruction text below the clock and Dynamic
-        // Island, while this background extends the white panel behind them.
-        backgroundColor: hasActiveRoute
+        // Keep the system status area visually attached to either white
+        // header without moving its content underneath the Dynamic Island.
+        backgroundColor: hasActiveRoute || _showOngoingClassReminder
             ? Colors.white
             : const Color(0xFFE8E8E8),
         drawerScrimColor: const Color(0x3D000000),

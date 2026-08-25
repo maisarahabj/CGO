@@ -95,11 +95,6 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            AppAssets.loginBackground,
-            fit: BoxFit.cover,
-            alignment: Alignment.topCenter,
-          ),
           ColoredBox(color: Colors.white.withValues(alpha: 0.68)),
           SafeArea(
             child: Consumer<BookingController>(

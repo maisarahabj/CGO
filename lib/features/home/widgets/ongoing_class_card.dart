@@ -20,34 +20,34 @@ class OngoingClassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      elevation: 7,
-      shadowColor: const Color(0x40000000),
-      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(22)),
+      elevation: 5,
+      shadowColor: const Color(0x26000000),
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(25)),
       clipBehavior: Clip.antiAlias,
       child: SizedBox(
-        height: 114,
+        height: 134,
         child: Stack(
           children: [
             Positioned(
-              left: 12,
-              top: 10,
-              bottom: 10,
-              width: 74,
+              left: 15,
+              top: 17,
+              bottom: 22,
+              width: 80,
               child: Image.asset(
                 AppAssets.classroomIllustration,
                 fit: BoxFit.contain,
               ),
             ),
             Positioned(
-              left: 92,
-              right: 12,
-              top: 7,
-              bottom: 7,
+              left: 107,
+              right: 18,
+              top: 11,
+              bottom: 12,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(right: 30),
+                    padding: const EdgeInsets.only(right: 28),
                     child: Row(
                       children: [
                         Flexible(
@@ -56,21 +56,22 @@ class OngoingClassCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
+                              fontFamily: 'RobotoCondensed',
+                              fontFamilyFallback: ['Roboto'],
+                              fontSize: 26,
+                              fontWeight: FontWeight.w500,
                               color: Color(0xFF2A77B4),
                               height: 1.05,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 4),
                         const Icon(
                           Icons.info_outline,
-                          size: 16,
+                          size: 17,
                           color: Color(0xFF8B94AA),
                         ),
-                        const SizedBox(width: 7),
+                        const SizedBox(width: 6),
                         Flexible(
                           child: Text(
                             ongoingClass.timeRange,
@@ -78,10 +79,11 @@ class OngoingClassCard extends StatelessWidget {
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             style: const TextStyle(
-                              fontFamily: 'Roboto',
-                              fontSize: 15,
+                              fontFamily: 'RobotoCondensed',
+                              fontFamilyFallback: ['Roboto'],
+                              fontSize: 20,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF8B94AA),
+                              color: Color(0xFF959BB1),
                               height: 1.1,
                             ),
                           ),
@@ -89,7 +91,7 @@ class OngoingClassCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Flexible(
@@ -98,19 +100,19 @@ class OngoingClassCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Raleway',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
                             color: Color(0xFF61727D),
                             height: 1.05,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 7),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                          horizontal: 7,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFBBB00),
@@ -119,8 +121,8 @@ class OngoingClassCard extends StatelessWidget {
                         child: const Text(
                           'ON-GOING',
                           style: TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 6.5,
+                            fontFamily: 'Raleway',
+                            fontSize: 7,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                             height: 1,
@@ -129,29 +131,30 @@ class OngoingClassCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 6),
                   Row(
                     children: [
                       const Icon(
                         Icons.schedule,
-                        size: 11,
+                        size: 12,
                         color: Color(0xFF9AA2B4),
                       ),
                       const SizedBox(width: 3),
                       Text(
                         '${ongoingClass.estimatedWalkMinutes} min away',
                         style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 9.5,
+                          fontFamily: 'RobotoCondensed',
+                          fontFamilyFallback: ['Roboto'],
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF9AA2B4),
                           height: 1,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       const Icon(
                         Icons.location_on_outlined,
-                        size: 11,
+                        size: 12,
                         color: Color(0xFF9AA2B4),
                       ),
                       const SizedBox(width: 2),
@@ -161,8 +164,9 @@ class OngoingClassCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 9.5,
+                            fontFamily: 'RobotoCondensed',
+                            fontFamilyFallback: ['Roboto'],
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF9AA2B4),
                             height: 1,
@@ -172,41 +176,44 @@ class OngoingClassCard extends StatelessWidget {
                     ],
                   ),
                   const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 23,
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(14),
-                      clipBehavior: Clip.antiAlias,
-                      child: Ink(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF4D0AA8), Color(0xFFFE6500)],
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: 178,
+                      height: 28,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: Ink(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF4D0AA8), Color(0xFFFE6500)],
+                            ),
                           ),
-                        ),
-                        child: InkWell(
-                          onTap: onNavigatePressed,
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Navigate Now',
-                                style: TextStyle(
-                                  fontFamily: 'Raleway',
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  height: 1,
+                          child: InkWell(
+                            onTap: onNavigatePressed,
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Navigate Now',
+                                  style: TextStyle(
+                                    fontFamily: 'Raleway',
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    height: 1,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 7),
-                              Icon(
-                                Icons.chevron_right,
-                                size: 15,
-                                color: Colors.white,
-                              ),
-                            ],
+                                SizedBox(width: 6),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -216,8 +223,8 @@ class OngoingClassCard extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: 8,
-              right: 10,
+              top: 12,
+              right: 14,
               child: Semantics(
                 button: true,
                 label: 'Dismiss ongoing class reminder',

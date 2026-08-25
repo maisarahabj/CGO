@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -33,7 +35,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   bool _isAccessibilityEnabled = false;
 
-  static const Color _blue = Color(0xFF176F9E);
+  static const Color _blue = Color(0xFF2A77B4);
+  static const Color _headingBlue = Color(0xFF115388);
+  static const Color _headingOrange = Color(0xFFF76B00);
+  static const Color _bannerInk = Color(0xFF3C5F7B);
+  static const Color _dayBlue = Color(0xFF185C92);
   static const Color _green = Color(0xFF78C66A);
   static const Color _lightGreen = Color(0xFFEDF8EC);
 
@@ -177,17 +183,79 @@ class _TimetableScreenState extends State<TimetableScreen> {
               return _errorState();
             }
 
-            return Column(
+            return Stack(
               children: [
-                _buildBanner(),
-                _buildRoomSearch(),
-                _buildDaySelector(),
-                Expanded(child: _buildRoomSchedule()),
+                Positioned(left: 0, right: 0, top: 0, child: _buildBanner()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 160,
+                  bottom: 0,
+                  child: _buildRoundedTimetableSurface(),
+                ),
               ],
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildRoundedTimetableSurface() {
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: 30,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(42)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x240C3450),
+                  blurRadius: 18,
+                  offset: Offset(0, -3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(42),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: Colors.white),
+                  Opacity(
+                    opacity: 0.08,
+                    child: Image.asset(
+                      AppAssets.loginBackground,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xDBFFFFFF), Color(0xF5FFFFFF)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Column(
+          children: [
+            _buildRoomSearch(),
+            _buildDaySelector(),
+            Expanded(child: _buildRoomSchedule()),
+          ],
+        ),
+      ],
     );
   }
 
@@ -247,103 +315,137 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Widget _buildBanner() {
     return SizedBox(
-      height: 145,
+      // Extend the artwork beneath the floating panel so its rounded corners
+      // reveal the illustration instead of disappearing into white.
+      height: 228,
       width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: -32,
-            height: 180,
-            child: Image.asset(
-              AppAssets.loginBackground,
-              fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              left: -40,
+              right: 0,
+              top: -18,
+              height: 630,
+              child: Image.asset(
+                AppAssets.loginBackground,
+                fit: BoxFit.cover,
+                // Adjust these alignment values to reposition UNIMY's logo.
+                alignment: const Alignment(-0.70, -0.42),
+              ),
             ),
-          ),
-          Container(color: Colors.white.withValues(alpha: 0.40)),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(145, 10, 14, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Find a Room',
-                  style: TextStyle(
-                    fontFamily: 'Raleway',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: _blue,
+            ColoredBox(color: Colors.white.withValues(alpha: 0.10)),
+            Positioned(
+              left: 112,
+              right: 2,
+              top: 13,
+              bottom: 65,
+              child: IgnorePointer(
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: 28.45,
+                    sigmaY: 28.45,
                   ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'View real-time room schedules to check '
-                  'empty or occupied slots.',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF202A31),
-                  ),
-                ),
-                if (!widget.guestMode) ...[
-                  const SizedBox(height: 9),
-                  Align(
-                    alignment: Alignment.center,
-                    child: _gradientBannerButton(
-                      text: 'YOUR BOOKINGS',
-                      onTap: _openBookings,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(57),
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xEBE8EFFF),
+                          Color(0xEBFFFFFF),
+                          Color(0xEBE8EFFF),
+                        ],
+                        stops: [0, 0.53, 1],
+                      ),
                     ),
                   ),
-                ],
-              ],
+                ),
+              ),
             ),
-          ),
-        ],
+            Positioned(
+              left: 132,
+              right: 12,
+              top: 10,
+              bottom: 67,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          fontFamily: 'Raleway',
+                          fontSize: 35,
+                          fontWeight: FontWeight.w700,
+                          height: 1.04,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Find a ',
+                            style: TextStyle(color: _blue),
+                          ),
+                          TextSpan(
+                            text: 'Room',
+                            style: TextStyle(color: _headingOrange),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'View real-time room schedules to check empty '
+                    'or occupied slots and reserve a room instantly.',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'RobotoCondensed',
+                      fontFamilyFallback: ['Roboto'],
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: _bannerInk,
+                      height: 1.04,
+                    ),
+                  ),
+                  if (!widget.guestMode) ...[
+                    const SizedBox(height: 9),
+                    _bannerButton(text: 'YOUR BOOKINGS', onTap: _openBookings),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _gradientBannerButton({
-    required String text,
-    required VoidCallback onTap,
-    double horizontalPadding = 12,
-  }) {
-    return Container(
-      height: 28,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF3235BD), Color(0xFF7D2C87), Color(0xFFFF2A0A)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+  Widget _bannerButton({required String text, required VoidCallback onTap}) {
+    return Align(
+      alignment: Alignment.centerLeft,
       child: Material(
-        color: Colors.transparent,
+        color: _bannerInk,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-            child: Center(
-              child: Text(
-                text,
-                style: const TextStyle(
-                  fontFamily: 'Raleway',
-                  fontSize: 8,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontFamily: 'Raleway',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+                letterSpacing: 0.1,
               ),
             ),
           ),
@@ -356,20 +458,45 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final results = _controller.searchResults;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Column(
         children: [
-          SizedBox(
-            height: 55,
+          Container(
+            height: 58,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(29),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x220C3450),
+                  blurRadius: 13,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
             child: TextField(
               controller: _searchController,
               onChanged: (value) {
                 _controller.setSearchQuery(value);
               },
-              style: const TextStyle(fontFamily: 'Raleway', fontSize: 16),
+              style: const TextStyle(
+                fontFamily: 'RobotoCondensed',
+                fontFamilyFallback: ['Roboto'],
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF5A5A5A),
+              ),
               decoration: InputDecoration(
                 hintText:
                     _controller.selectedRoomName ?? 'Search room or class',
+                hintStyle: const TextStyle(
+                  fontFamily: 'RobotoCondensed',
+                  fontFamilyFallback: ['Roboto'],
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6A6A6A),
+                ),
                 prefixIcon: Padding(
                   padding: const EdgeInsets.all(15),
                   child: SvgPicture.asset(
@@ -398,15 +525,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   vertical: 14,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(29),
                   borderSide: const BorderSide(color: _blue),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(29),
                   borderSide: const BorderSide(color: _blue),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(29),
                   borderSide: const BorderSide(color: _blue, width: 2),
                 ),
               ),
@@ -503,17 +630,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Widget _buildDaySelector() {
     return Container(
-      height: 54,
-      margin: const EdgeInsets.fromLTRB(10, 4, 10, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      height: 64,
+      margin: const EdgeInsets.fromLTRB(11, 3, 11, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -535,18 +662,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   Text(
                     _shortDay(day),
                     style: const TextStyle(
-                      fontFamily: 'Raleway',
-                      fontSize: 13,
+                      fontFamily: 'RobotoFlex',
+                      fontFamilyFallback: ['RobotoCondensed', 'Roboto'],
+                      fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      color: _blue,
+                      color: _dayBlue,
+                      height: 1,
                     ),
                   ),
                   const SizedBox(height: 5),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
-                    width: selected ? 30 : 0,
-                    height: 2,
-                    decoration: const BoxDecoration(color: _blue),
+                    width: selected ? 37 : 0,
+                    height: 2.5,
+                    decoration: const BoxDecoration(color: _dayBlue),
                   ),
                 ],
               ),
@@ -584,9 +713,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Raleway',
-                fontSize: 18,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
-                color: _blue,
+                color: _headingBlue,
+                height: 1.1,
               ),
             ),
             const SizedBox(height: 9),
@@ -599,16 +729,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     side: const BorderSide(color: _blue),
                     minimumSize: const Size(120, 30),
                   ),
-                  icon: SvgPicture.asset(
-                    AppAssets.navPointer,
-                    width: 13,
-                    height: 13,
-                  ),
+
                   label: const Text(
                     'Navigate Now',
                     style: TextStyle(
                       fontFamily: 'Raleway',
-                      fontSize: 10,
+                      fontSize: 15,
                       color: _blue,
                     ),
                   ),
@@ -623,7 +749,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     ),
                     child: const Text(
                       'Book Room',
-                      style: TextStyle(fontFamily: 'Raleway', fontSize: 10),
+                      style: TextStyle(fontFamily: 'Raleway', fontSize: 15),
                     ),
                   ),
                 ],

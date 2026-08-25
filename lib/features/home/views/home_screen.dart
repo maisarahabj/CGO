@@ -34,6 +34,7 @@ class HomeScreen extends StatefulWidget {
     this.unreadNotificationCount = 0,
     this.onNotificationRefresh,
     this.onScheduleRefresh,
+    this.onProfileRefresh,
     this.initialDestinationNodeId,
     super.key,
   });
@@ -62,6 +63,7 @@ class HomeScreen extends StatefulWidget {
 
   final Future<void> Function()? onNotificationRefresh;
   final Future<void> Function()? onScheduleRefresh;
+  final Future<void> Function()? onProfileRefresh;
   final String? initialDestinationNodeId;
 
   @override
@@ -767,10 +769,15 @@ class _HomeScreenState extends State<HomeScreen> {
           isRegisteredUser: _isRegisteredUser,
           profile: widget.profile,
           onProfilePressed: _isRegisteredUser
-              ? () {
-                  _closeDrawerThen(() {
-                    Navigator.of(context).pushNamed(AppRoutes.editProfile);
-                  });
+              ? () async {
+                  final navigator = Navigator.of(context);
+
+                  navigator.pop();
+                  await navigator.pushNamed(AppRoutes.editProfile);
+
+                  if (mounted) {
+                    await widget.onProfileRefresh?.call();
+                  }
                 }
               : null,
           isAccessibilityEnabled: _isAccessibilityEnabled,

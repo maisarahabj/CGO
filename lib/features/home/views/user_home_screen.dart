@@ -38,6 +38,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
     super.initState();
 
     _notificationController.addListener(_handleNotificationStateChanged);
+    widget.authController.addListener(_handleAuthControllerChanged);
 
     unawaited(_refreshSchedule());
     unawaited(_refreshNotifications());
@@ -52,10 +53,21 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   void didUpdateWidget(covariant UserHomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.authController != widget.authController) {
+      oldWidget.authController.removeListener(_handleAuthControllerChanged);
+      widget.authController.addListener(_handleAuthControllerChanged);
+    }
+
     if (oldWidget.authController.profile?.id !=
         widget.authController.profile?.id) {
       unawaited(_refreshSchedule());
       unawaited(_refreshNotifications());
+    }
+  }
+
+  void _handleAuthControllerChanged() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -109,6 +121,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    widget.authController.removeListener(_handleAuthControllerChanged);
 
     _notificationController
       ..removeListener(_handleNotificationStateChanged)
@@ -127,6 +140,7 @@ class _UserHomeScreenState extends State<UserHomeScreen> {
       unreadNotificationCount: _notificationController.unreadCount,
       onNotificationRefresh: _refreshNotifications,
       onScheduleRefresh: _refreshSchedule,
+      onProfileRefresh: widget.authController.refreshProfile,
       onSessionAction: widget.authController.signOut,
       initialDestinationNodeId: widget.initialDestinationNodeId,
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_assets.dart';
 import '../controllers/profile_controller.dart';
@@ -91,6 +92,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _draftDob = selectedDate;
       _dobError = null;
     });
+  }
+
+  Future<void> _pickProfileImage() async {
+    if (_profileController.isUploadingProfilePicture) {
+      return;
+    }
+
+    try {
+      final picker = ImagePicker();
+      final pickedImage = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+
+      if (pickedImage == null || !mounted) {
+        return;
+      }
+
+      final bytes = await pickedImage.readAsBytes();
+      if (bytes.isEmpty) {
+        _showMessage('The selected image could not be read.', isError: true);
+        return;
+      }
+
+      final extension = _profileImageExtension(pickedImage.path);
+      if (extension == null) {
+        _showMessage('Please choose a JPG, PNG or WEBP image.', isError: true);
+        return;
+      }
+
+      final didSave = await _profileController.updateProfilePicture(
+        bytes: bytes,
+        extension: extension,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (!didSave) {
+        _showMessage(
+          _profileController.errorMessage ??
+              'Your profile picture could not be updated.',
+          isError: true,
+        );
+        return;
+      }
+
+      _showMessage('Profile picture updated successfully.', isError: false);
+    } catch (error, stackTrace) {
+      debugPrint('Profile image picker failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (mounted) {
+        _showMessage('The selected image could not be opened.', isError: true);
+      }
+    }
+  }
+
+  String? _profileImageExtension(String path) {
+    final cleanPath = path.split('?').first;
+    final dotIndex = cleanPath.lastIndexOf('.');
+    if (dotIndex == -1 || dotIndex == cleanPath.length - 1) {
+      return null;
+    }
+
+    final extension = cleanPath.substring(dotIndex + 1).toLowerCase();
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'webp':
+        return extension;
+      default:
+        return null;
+    }
   }
 
   Future<void> _saveChanges() async {
@@ -245,7 +324,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         padding: const EdgeInsets.only(top: 20, bottom: 36),
                         child: Column(
                           children: [
-                            ProfileHeader(profile: profile),
+                            ProfileHeader(
+                              profile: profile,
+                              onCameraPressed: _pickProfileImage,
+                              isUploading:
+                                  _profileController.isUploadingProfilePicture,
+                            ),
 
                             const SizedBox(height: 6),
 
@@ -266,55 +350,68 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildTopBar() {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
       color: Colors.white,
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: Column(
         children: [
-          IconButton(
-            tooltip: 'Menu',
-            splashRadius: 22,
-            onPressed: () {
-              Navigator.of(context).maybePop();
-            },
-            icon: SvgPicture.asset(AppAssets.hamburger, width: 27),
-          ),
-
-          const Expanded(
-            child: Center(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text.rich(
-                  TextSpan(
-                    style: TextStyle(
-                      fontFamily: 'Raleway',
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
+          SizedBox(
+            height: 70,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Menu',
+                  splashRadius: 22,
+                  onPressed: () {
+                    Navigator.of(context).maybePop();
+                  },
+                  icon: SvgPicture.asset(AppAssets.hamburger, width: 27),
+                ),
+                const Expanded(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text.rich(
+                        TextSpan(
+                          style: TextStyle(
+                            fontFamily: 'Raleway',
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Campus',
+                              style: TextStyle(color: Color(0xFF38358E)),
+                            ),
+                            TextSpan(
+                              text: 'GO',
+                              style: TextStyle(color: Color(0xFFFF0000)),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                    children: [
-                      TextSpan(
-                        text: 'Campus',
-                        style: TextStyle(color: Color(0xFF38358E)),
-                      ),
-                      TextSpan(
-                        text: 'GO',
-                        style: TextStyle(color: Color(0xFFFF0000)),
-                      ),
-                    ],
                   ),
                 ),
-              ),
+                IconButton(
+                  tooltip: 'Close',
+                  splashRadius: 22,
+                  onPressed: () {
+                    Navigator.of(context).maybePop();
+                  },
+                  icon: SvgPicture.asset(AppAssets.closeButton, width: 23),
+                ),
+              ],
             ),
           ),
-
-          IconButton(
-            tooltip: 'Close',
-            splashRadius: 22,
-            onPressed: () {
-              Navigator.of(context).maybePop();
-            },
-            icon: SvgPicture.asset(AppAssets.closeButton, width: 23),
+          const Text(
+            'Profile',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF115388),
+            ),
           ),
         ],
       ),
@@ -327,12 +424,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       width: double.infinity,
       margin: EdgeInsets.zero,
-      padding: const EdgeInsets.fromLTRB(
-        24,
-        24,
-        24,
-        40,
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -350,50 +442,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 44,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Center(
-                  child: Text(
-                    'Your Information',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Raleway',
-                      fontWeight: FontWeight.w700,
-                      fontSize: 24,
-                      color: Color(0xFF115388),
-                    ),
-                  ),
-                ),
-
-                Positioned(
-                  right: 0,
-                  child: IconButton(
-                    tooltip: _isEditing ? 'Cancel editing' : 'Edit profile',
-                    splashRadius: 22,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: _profileController.isLoading
-                        ? null
-                        : () {
-                            if (_isEditing) {
-                              _cancelEditing();
-                            } else {
-                              _startEditing();
-                            }
-                          },
-                    icon: Icon(
-                      _isEditing ? Icons.close_rounded : Icons.edit_outlined,
-                      size: 27,
-                      color: const Color(0xFF126BA7),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+  Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      const Expanded(
+        child: Text(
+          'Full Name and Email are managed by UNIMY and cannot be edited here.',
+          style: TextStyle(
+            fontFamily: 'Roboto',
+            fontSize: 13,
+            height: 1.4,
+            color: Color(0xFF777777),
           ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      IconButton(
+        tooltip: _isEditing ? 'Cancel editing' : 'Edit profile',
+        splashRadius: 22,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        onPressed: _profileController.isLoading
+            ? null
+            : () {
+                if (_isEditing) {
+                  _cancelEditing();
+                } else {
+                  _startEditing();
+                }
+              },
+        icon: Icon(
+          _isEditing ? Icons.close_rounded : Icons.edit_outlined,
+          size: 26,
+          color: const Color(0xFF126BA7),
+        ),
+      ),
+    ],
+  ),
+
+const SizedBox(height: 26),
 
           const SizedBox(height: 5),
 
@@ -450,7 +537,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'Change Password',
               style: TextStyle(
                 fontFamily: 'Raleway',
-                fontSize: 19,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF38358E),
               ),
@@ -590,9 +677,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label,
             style: const TextStyle(
               fontFamily: 'Roboto',
-              fontSize: 18,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF919191),
+              color: Color(0xFF7D858C),
             ),
           ),
         ),
@@ -606,7 +693,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           obscureText: obscure,
           style: const TextStyle(
             fontFamily: 'Roboto',
-            fontSize: 19,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Color(0xFF424242),
           ),
@@ -641,9 +728,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             'DOB',
             style: TextStyle(
               fontFamily: 'Roboto',
-              fontSize: 18,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF919191),
+              color: Color(0xFF7D858C),
             ),
           ),
         ),
@@ -701,7 +788,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               dob == null ? 'Select date' : _formatDob(dob),
               style: TextStyle(
                 fontFamily: 'Roboto',
-                fontSize: 19,
+                fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: dob == null
                     ? const Color(0xFF919191)
@@ -729,9 +816,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label,
             style: const TextStyle(
               fontFamily: 'Roboto',
-              fontSize: 18,
+              fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Color(0xFF919191),
+              color: Color(0xFF7D858C),
             ),
           ),
         ),
@@ -743,7 +830,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           obscureText: obscure,
           style: const TextStyle(
             fontFamily: 'Roboto',
-            fontSize: 18,
+            fontSize: 16,
             color: Color(0xFF424242),
           ),
           decoration: InputDecoration(

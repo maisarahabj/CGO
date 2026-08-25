@@ -4,13 +4,15 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../profile/models/profile_model.dart';
+import '../../profile/services/profile_service.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 
 /// Stores the authenticated user's session, profile, and role.
 class AuthController extends ChangeNotifier {
-  AuthController({AuthService? authService})
-    : _authService = authService ?? AuthService() {
+  AuthController({AuthService? authService, ProfileService? profileService})
+    : _authService = authService ?? AuthService(),
+      _profileService = profileService ?? ProfileService() {
     _authSubscription = _authService.authStateChanges.listen(
       _handleAuthStateChange,
       onError: _handleAuthStreamError,
@@ -20,6 +22,7 @@ class AuthController extends ChangeNotifier {
   }
 
   final AuthService _authService;
+  final ProfileService _profileService;
   StreamSubscription<AuthState>? _authSubscription;
 
   UserRole _role = UserRole.guest;
@@ -53,6 +56,25 @@ class AuthController extends ChangeNotifier {
       _errorMessage = 'We could not load your account. Please sign in again.';
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<void> refreshProfile() async {
+    if (_authService.currentSession == null) {
+      return;
+    }
+
+    try {
+      final refreshedProfile = await _profileService.getCurrentProfile();
+      if (refreshedProfile == null) {
+        return;
+      }
+
+      _profile = refreshedProfile;
+      notifyListeners();
+    } catch (error, stackTrace) {
+      debugPrint('Profile refresh failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 

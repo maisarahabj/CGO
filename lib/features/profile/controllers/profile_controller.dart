@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,12 +19,14 @@ class ProfileController extends ChangeNotifier {
   ProfileModel? _profile;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _isUploadingProfilePicture = false;
 
   ProfileModel? get profile => _profile;
 
   bool get isLoading => _isLoading;
 
   String? get errorMessage => _errorMessage;
+  bool get isUploadingProfilePicture => _isUploadingProfilePicture;
 
   String? get currentUserEmail {
     return _profileService.currentUserEmail;
@@ -48,6 +52,41 @@ class ProfileController extends ChangeNotifier {
       _errorMessage = 'We could not load your profile. Please try again.';
     } finally {
       _setLoading(false);
+    }
+  }
+
+  Future<bool> updateProfilePicture({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final userId = _profileService.currentUserId;
+    if (userId == null) {
+      _errorMessage =
+          'Your authentication session is unavailable. Please sign in again.';
+      notifyListeners();
+      return false;
+    }
+
+    _isUploadingProfilePicture = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      _profile = await _profileService.uploadProfilePicture(
+        userId: userId,
+        bytes: bytes,
+        extension: extension,
+      );
+      return true;
+    } catch (error, stackTrace) {
+      debugPrint('Profile picture update failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _errorMessage =
+          'We could not upload your profile picture. Please try again.';
+      return false;
+    } finally {
+      _isUploadingProfilePicture = false;
+      notifyListeners();
     }
   }
 

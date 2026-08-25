@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/constants/app_assets.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -21,41 +23,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           children: [
             _buildHeader(),
-
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(14, 16, 14, 28),
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 34),
                 children: [
-                  _buildIntro(),
-
-                  const SizedBox(height: 18),
-
                   _SettingsSection(
                     children: [
                       _SettingsTile(
                         icon: Icons.info_outline_rounded,
-                        title: 'About',
+                        title: 'About CampusGO',
                         onTap: () {
-                          Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.aboutCampusGo);
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.aboutCampusGo,
+                          );
                         },
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 17),
-
-                  _SectionLabel('Notifications & Alerts'),
-
+                  const SizedBox(height: 18),
+                  const _SectionLabel('Notifications & Alerts'),
                   _SettingsSection(
                     children: [
                       _SettingsTile(
                         icon: Icons.notifications_none_rounded,
                         title: 'Notification',
-                        subtitle: 'Class reminders and news',
+                        subtitle: 'Class reminders and CampusGO updates',
                         trailing: Switch(
                           value: _notificationsEnabled,
+                          activeThumbColor: Colors.white,
+                          activeTrackColor: const Color(0xFF2A77B4),
+                          inactiveThumbColor: Colors.white,
+                          inactiveTrackColor: const Color(0xFFB7B7B7),
                           onChanged: (value) {
                             setState(() {
                               _notificationsEnabled = value;
@@ -66,8 +65,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _SettingsTile(
                         icon: Icons.directions_walk_outlined,
                         title: 'Step by Step Cues',
+                        subtitle: 'Show navigation guidance cues',
                         trailing: Switch(
                           value: _stepByStepEnabled,
+                          activeThumbColor: Colors.white,
+                          activeTrackColor: const Color(0xFF2A77B4),
+                          inactiveThumbColor: Colors.white,
+                          inactiveTrackColor: const Color(0xFFB7B7B7),
                           onChanged: (value) {
                             setState(() {
                               _stepByStepEnabled = value;
@@ -77,34 +81,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 17),
-
-                  _SectionLabel('Account'),
-
+                  const SizedBox(height: 18),
+                  const _SectionLabel('Account'),
                   _SettingsSection(
                     children: [
                       _SettingsTile(
                         icon: Icons.manage_accounts_outlined,
                         title: 'Account and login',
+                        subtitle: 'UNIMY account information',
                         onTap: _showAccountInfo,
-                      ),
-                      _SettingsTile(
-                        icon: Icons.privacy_tip_outlined,
-                        title: 'Privacy',
-                        onTap: () {
-                          Navigator.of(
-                            context,
-                          ).pushNamed(AppRoutes.privacyPolicy);
-                        },
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 17),
-
-                  _SectionLabel('Activity'),
-
+                  const SizedBox(height: 18),
+                  const _SectionLabel('Activity'),
                   _SettingsSection(
                     children: [
                       _SettingsTile(
@@ -116,37 +106,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.calendar_month_outlined,
                         title: 'Bookings',
                         onTap: () {
-                          Navigator.of(context).pushNamed(AppRoutes.timetable);
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.bookings,
+                          );
                         },
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 17),
-
-                  _SectionLabel('Help and Feedback'),
-
+                  const SizedBox(height: 18),
+                  const _SectionLabel('Help & Feedback'),
                   _SettingsSection(
                     children: [
                       _SettingsTile(
                         icon: Icons.help_outline_rounded,
-                        title: 'FAQ',
+                        title: 'Help & Feedback',
+                        subtitle: 'FAQ and report an issue',
                         onTap: () {
-                          Navigator.of(context).pushNamed(AppRoutes.support);
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.support,
+                          );
                         },
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  const _SectionLabel('Privacy & Legal'),
+                  _SettingsSection(
+                    children: [
                       _SettingsTile(
-                        icon: Icons.report_outlined,
-                        title: 'Report an issue',
+                        icon: Icons.privacy_tip_outlined,
+                        title: 'CampusGO Privacy Policy',
                         onTap: () {
-                          Navigator.of(context).pushNamed(AppRoutes.support);
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.privacyPolicy,
+                          );
                         },
                       ),
                       _SettingsTile(
                         icon: Icons.description_outlined,
                         title: 'CampusGO Terms of Use',
                         onTap: () {
-                          Navigator.of(context).pushNamed(AppRoutes.termsOfUse);
+                          Navigator.of(context).pushNamed(
+                            AppRoutes.termsOfUse,
+                          );
                         },
                       ),
                     ],
@@ -163,114 +165,76 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildHeader() {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
       child: Column(
         children: [
-          Row(
-            children: [
-              IconButton(
-                tooltip: 'Back',
-                onPressed: () {
-                  Navigator.of(context).maybePop();
-                },
-                icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Color(0xFF2A77B4),
-                  size: 22,
+          SizedBox(
+            height: 70,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: 'Menu',
+                  splashRadius: 22,
+                  onPressed: () {
+                    Navigator.of(context).maybePop();
+                  },
+                  icon: SvgPicture.asset(
+                    AppAssets.hamburger,
+                    width: 27,
+                  ),
                 ),
-              ),
-
-              const Expanded(
-                child: Center(
-                  child: Text.rich(
-                    TextSpan(
-                      style: TextStyle(
-                        fontFamily: 'Raleway',
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
+                const Expanded(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text.rich(
+                        TextSpan(
+                          style: TextStyle(
+                            fontFamily: 'Raleway',
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: 'Campus',
+                              style: TextStyle(
+                                color: Color(0xFF38358E),
+                              ),
+                            ),
+                            TextSpan(
+                              text: 'GO',
+                              style: TextStyle(
+                                color: Color(0xFFFF0000),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      children: [
-                        TextSpan(
-                          text: 'Campus',
-                          style: TextStyle(color: Color(0xFF38358E)),
-                        ),
-                        TextSpan(
-                          text: 'GO',
-                          style: TextStyle(color: Colors.red),
-                        ),
-                      ],
                     ),
                   ),
                 ),
-              ),
-
-              IconButton(
-                tooltip: 'Close',
-                onPressed: () {
-                  Navigator.of(context).maybePop();
-                },
-                icon: const Icon(
-                  Icons.close_rounded,
-                  size: 27,
-                  color: Color(0xFF1E1E1E),
+                IconButton(
+                  tooltip: 'Close',
+                  splashRadius: 22,
+                  onPressed: () {
+                    Navigator.of(context).maybePop();
+                  },
+                  icon: SvgPicture.asset(
+                    AppAssets.closeButton,
+                    width: 23,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-
           const Text(
             'Settings',
             style: TextStyle(
               fontFamily: 'Raleway',
-              fontSize: 15,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF005B96),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIntro() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEAF5FB),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.settings_outlined, size: 42, color: Color(0xFF2A77B4)),
-
-          SizedBox(width: 15),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'App Settings',
-                  style: TextStyle(
-                    fontFamily: 'Raleway',
-                    fontSize: 23,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF2A77B4),
-                  ),
-                ),
-
-                SizedBox(height: 4),
-
-                Text(
-                  'Manage your preferences, privacy, support and app information.',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 13,
-                    height: 1.3,
-                    color: Color(0xFF61727D),
-                  ),
-                ),
-              ],
+              color: Color(0xFF115388),
             ),
           ),
         ],
@@ -283,11 +247,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Account and Login'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Account and Login',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF115388),
+            ),
+          ),
           content: const Text(
             'CampusGO account access is managed through your UNIMY '
-            'authentication credentials. Your profile information can be '
-            'viewed from the Profile option in the main menu.',
+            'authentication credentials. Profile information can be viewed '
+            'from the Profile option in the main menu.',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 14,
+              height: 1.45,
+            ),
           ),
           actions: [
             TextButton(
@@ -307,10 +286,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Navigation History'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: const Text(
+            'Navigation History',
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF115388),
+            ),
+          ),
           content: const Text(
-            'Navigation history will contain previously completed '
-            'CampusGO routes where history tracking is available.',
+            'Navigation history will contain previously completed CampusGO '
+            'routes where history tracking is available.',
+            style: TextStyle(
+              fontFamily: 'Roboto',
+              fontSize: 14,
+              height: 1.45,
+            ),
           ),
           actions: [
             TextButton(
@@ -334,12 +328,12 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 12, bottom: 5),
+      padding: const EdgeInsets.only(left: 14, bottom: 7),
       child: Text(
         text,
         style: const TextStyle(
           fontFamily: 'Roboto',
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
           color: Color(0xFF2A77B4),
         ),
@@ -349,7 +343,9 @@ class _SectionLabel extends StatelessWidget {
 }
 
 class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({required this.children});
+  const _SettingsSection({
+    required this.children,
+  });
 
   final List<Widget> children;
 
@@ -358,26 +354,32 @@ class _SettingsSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFF2A77B4), width: 1),
-        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF9DC7DD),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(22),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
-        children: List.generate(children.length, (index) {
-          return Column(
-            children: [
-              children[index],
-
-              if (index != children.length - 1)
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  indent: 48,
-                  endIndent: 12,
-                  color: Color(0xFFD7DDE2),
-                ),
-            ],
-          );
-        }),
+        children: List.generate(
+          children.length,
+          (index) {
+            return Column(
+              children: [
+                children[index],
+                if (index != children.length - 1)
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 54,
+                    endIndent: 14,
+                    color: Color(0xFFE1E6E9),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -403,19 +405,20 @@ class _SettingsTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
           child: Row(
             children: [
               SizedBox(
-                width: 26,
-                child: Icon(icon, size: 20, color: const Color(0xFF303030)),
+                width: 28,
+                child: Icon(
+                  icon,
+                  size: 21,
+                  color: const Color(0xFF303030),
+                ),
               ),
-
-              const SizedBox(width: 8),
-
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,33 +427,33 @@ class _SettingsTile extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontFamily: 'Roboto',
-                        fontSize: 15,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.w500,
                         color: Color(0xFF303030),
                       ),
                     ),
-
                     if (subtitle != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         subtitle!,
                         style: const TextStyle(
                           fontFamily: 'Roboto',
-                          fontSize: 11,
-                          color: Color(0xFF909090),
+                          fontSize: 11.5,
+                          height: 1.3,
+                          color: Color(0xFF8A8A8A),
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-
+              const SizedBox(width: 8),
               if (trailing != null)
                 trailing!
               else
                 const Icon(
                   Icons.chevron_right_rounded,
-                  size: 21,
+                  size: 22,
                   color: Color(0xFF8295A3),
                 ),
             ],

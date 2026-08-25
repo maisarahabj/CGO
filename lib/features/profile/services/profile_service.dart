@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/profile_model.dart';
 
 /// Handles Supabase operations for the authenticated CampusGO profile.
 class ProfileService {
+  static const String _profilePictureBucket = 'profile-pictures';
+
   ProfileService({SupabaseClient? client})
     : _client = client ?? Supabase.instance.client;
 
@@ -50,6 +54,60 @@ class ProfileService {
         .from('profile')
         .update({'dob': dob.toIso8601String().split('T').first})
         .eq('id', userId);
+  }
+
+  Future<ProfileModel> uploadProfilePicture({
+    required String userId,
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final normalizedExtension = extension.trim().toLowerCase();
+    final safeExtension = normalizedExtension == 'jpeg'
+        ? 'jpg'
+        : normalizedExtension;
+
+    if (!{'jpg', 'png', 'webp'}.contains(safeExtension)) {
+      throw ArgumentError('Unsupported profile image extension: $extension');
+    }
+
+    final contentType = switch (safeExtension) {
+      'png' => 'image/png',
+      'webp' => 'image/webp',
+      _ => 'image/jpeg',
+    };
+
+    final objectPath = '$userId/avatar.$safeExtension';
+
+    await _client.storage
+        .from(_profilePictureBucket)
+        .uploadBinary(
+          objectPath,
+          bytes,
+          fileOptions: FileOptions(
+            upsert: true,
+            cacheControl: '3600',
+            contentType: contentType,
+          ),
+        );
+
+    final publicUrl = _client.storage
+        .from(_profilePictureBucket)
+        .getPublicUrl(objectPath);
+
+    final versionedUrl =
+        '$publicUrl?v=${DateTime.now().millisecondsSinceEpoch}';
+
+    await _client
+        .from('profile')
+        .update({'prof_pic': versionedUrl})
+        .eq('id', userId);
+
+    final refreshedProfile = await getProfile(userId);
+    if (refreshedProfile == null) {
+      throw StateError('Updated profile picture could not be reloaded.');
+    }
+
+    return refreshedProfile;
   }
 
   /// Changes the authenticated user's password.

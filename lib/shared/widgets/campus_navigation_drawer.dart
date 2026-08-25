@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/constants/app_assets.dart';
-import '../../features/profile/models/profile_model.dart';
 import '../../features/notifications/widgets/unread_notification_badge.dart';
+import '../../features/profile/models/profile_model.dart';
 
 class CampusNavigationDrawer extends StatelessWidget {
   const CampusNavigationDrawer({
@@ -39,14 +39,19 @@ class CampusNavigationDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final drawerWidth = math.min(
       300.0,
-      math.max(240.0, MediaQuery.sizeOf(context).width * 0.69),
+      math.max(
+        240.0,
+        MediaQuery.sizeOf(context).width * 0.69,
+      ),
     );
 
     return Drawer(
       width: drawerWidth,
       elevation: 0,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.zero,
+      ),
       child: SafeArea(
         child: Column(
           children: [
@@ -76,32 +81,20 @@ class CampusNavigationDrawer extends StatelessWidget {
                         count: unreadNotificationCount,
                       ),
                     ),
-
                     const _InsetDivider(horizontalMargin: 28),
                   ],
-
-                  // Timetable is available to both registered users
-                  // and guests.
-                  //
-                  // Registered users can access their personal
-                  // schedule, room availability and booking-related
-                  // functionality.
-                  //
-                  // Guests only receive access to public class
-                  // schedules and room availability.
                   _DrawerMenuItem(
                     title: 'Timetable',
                     description: isRegisteredUser
                         ? 'Class schedules\n'
-                              'Room availability\n'
-                              'Reserve & view bookings'
+                            'Room availability\n'
+                            'Reserve & view bookings'
                         : 'Class schedules\n'
-                              'Room availability',
+                            'Room availability',
                     iconAsset: AppAssets.drawerTimetable,
                     onTap: onTimetablePressed,
                   ),
                   const _InsetDivider(horizontalMargin: 28),
-
                   _DrawerMenuItem(
                     title: 'Settings',
                     iconAsset: AppAssets.drawerSettings,
@@ -116,7 +109,9 @@ class CampusNavigationDrawer extends StatelessWidget {
                         'Avoid steps and prefer lifts',
                     iconAsset: AppAssets.drawerAccess,
                     onTap: () {
-                      onAccessibilityChanged(!isAccessibilityEnabled);
+                      onAccessibilityChanged(
+                        !isAccessibilityEnabled,
+                      );
                     },
                     trailingBelow: _CompactSwitch(
                       value: isAccessibilityEnabled,
@@ -137,7 +132,6 @@ class CampusNavigationDrawer extends StatelessWidget {
               label: isRegisteredUser ? 'Log out' : 'Sign in',
               onPressed: () async {
                 Navigator.of(context).pop();
-
                 await onSessionAction();
               },
             ),
@@ -149,7 +143,9 @@ class CampusNavigationDrawer extends StatelessWidget {
 }
 
 class _CloseDrawerButton extends StatelessWidget {
-  const _CloseDrawerButton({required this.onPressed});
+  const _CloseDrawerButton({
+    required this.onPressed,
+  });
 
   final VoidCallback onPressed;
 
@@ -163,7 +159,11 @@ class _CloseDrawerButton extends StatelessWidget {
           tooltip: 'Close menu',
           onPressed: onPressed,
           padding: const EdgeInsets.only(right: 12),
-          icon: SvgPicture.asset(AppAssets.closeButton, width: 20, height: 20),
+          icon: SvgPicture.asset(
+            AppAssets.closeButton,
+            width: 20,
+            height: 20,
+          ),
         ),
       ),
     );
@@ -181,7 +181,10 @@ class _ProfileHeader extends StatelessWidget {
   final ProfileModel? profile;
   final VoidCallback? onPressed;
 
-  static String _textOrFallback(String? value, String fallback) {
+  static String _textOrFallback(
+    String? value,
+    String fallback,
+  ) {
     final cleanedValue = value?.trim();
 
     if (cleanedValue == null || cleanedValue.isEmpty) {
@@ -194,23 +197,36 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String displayName = isRegisteredUser
-        ? _textOrFallback(profile?.fullName, 'CampusGO User')
+        ? _textOrFallback(
+            profile?.fullName,
+            'CampusGO User',
+          )
         : 'Guest';
 
     final String secondaryText = isRegisteredUser
-        ? _textOrFallback(profile?.unimyId, 'Student / Lecturer')
+        ? _textOrFallback(
+            profile?.unimyId,
+            'Student / Lecturer',
+          )
         : 'Public access';
 
-    final String initials = isRegisteredUser ? profile?.initials ?? 'U' : 'G';
+    final String initials =
+        isRegisteredUser ? profile?.initials ?? 'U' : 'G';
 
     final content = Padding(
-      padding: const EdgeInsets.fromLTRB(36, 0, 12, 20),
+      padding: const EdgeInsets.fromLTRB(
+        36,
+        0,
+        12,
+        20,
+      ),
       child: Row(
         children: [
           _ProfileAvatar(
             initials: initials,
-            imageUrl: isRegisteredUser ? profile?.profileImageUrl : null,
-            showCamera: isRegisteredUser,
+            imageUrl: isRegisteredUser
+                ? profile?.profileImageUrl
+                : null,
           ),
           const SizedBox(width: 17),
           Expanded(
@@ -259,7 +275,10 @@ class _ProfileHeader extends StatelessWidget {
       label: 'Edit profile information',
       child: Material(
         color: Colors.transparent,
-        child: InkWell(onTap: onPressed, child: content),
+        child: InkWell(
+          onTap: onPressed,
+          child: content,
+        ),
       ),
     );
   }
@@ -269,78 +288,67 @@ class _ProfileAvatar extends StatelessWidget {
   const _ProfileAvatar({
     required this.initials,
     required this.imageUrl,
-    required this.showCamera,
   });
 
   final String initials;
   final String? imageUrl;
-  final bool showCamera;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: 65,
       height: 65,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 62,
-            height: 62,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF2A77B4), width: 2.2),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x30000000),
-                  blurRadius: 4,
-                  offset: Offset(0, 3),
-                ),
-              ],
+      child: Align(
+        alignment: Alignment.topLeft,
+        child: Container(
+          width: 62,
+          height: 62,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFF2A77B4),
+              width: 2.2,
             ),
-            clipBehavior: Clip.antiAlias,
-            child: imageUrl == null
-                ? Center(
-                    child: Text(
-                      initials,
-                      style: const TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF1E1E1E),
-                      ),
-                    ),
-                  )
-                : Image.network(
-                    imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) {
-                      return Center(
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 17,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF1E1E1E),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-          if (showCamera)
-            Positioned(
-              right: -1,
-              bottom: -1,
-              child: SvgPicture.asset(
-                AppAssets.profileCamera,
-                width: 24,
-                height: 23,
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x30000000),
+                blurRadius: 4,
+                offset: Offset(0, 3),
               ),
-            ),
-        ],
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: imageUrl == null
+              ? Center(
+                  child: Text(
+                    initials,
+                    style: const TextStyle(
+                      fontFamily: 'Roboto',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF1E1E1E),
+                    ),
+                  ),
+                )
+              : Image.network(
+                  imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) {
+                    return Center(
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          fontFamily: 'Roboto',
+                          fontSize: 17,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF1E1E1E),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -352,7 +360,12 @@ class _CampusGoBrand extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(30, 22, 12, 22),
+      padding: const EdgeInsets.fromLTRB(
+        30,
+        22,
+        12,
+        22,
+      ),
       child: Row(
         children: [
           Image.asset(
@@ -376,10 +389,14 @@ class _CampusGoBrand extends StatelessWidget {
                     height: 1,
                   ),
                   children: [
-                    TextSpan(text: 'Campus'),
+                    TextSpan(
+                      text: 'Campus',
+                    ),
                     TextSpan(
                       text: 'GO',
-                      style: TextStyle(color: Color(0xFFFF0000)),
+                      style: TextStyle(
+                        color: Color(0xFFFF0000),
+                      ),
                     ),
                   ],
                 ),
@@ -477,7 +494,10 @@ class _DrawerMenuItem extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+              if (trailing != null) ...[
+                const SizedBox(width: 10),
+                trailing!,
+              ],
             ],
           ),
         ),
@@ -487,7 +507,10 @@ class _DrawerMenuItem extends StatelessWidget {
 }
 
 class _CompactSwitch extends StatelessWidget {
-  const _CompactSwitch({required this.value, required this.onChanged});
+  const _CompactSwitch({
+    required this.value,
+    required this.onChanged,
+  });
 
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -504,13 +527,19 @@ class _CompactSwitch extends StatelessWidget {
         },
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+          duration: const Duration(
+            milliseconds: 180,
+          ),
           width: 26,
           height: 14,
           padding: const EdgeInsets.all(2),
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          alignment: value
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
           decoration: BoxDecoration(
-            color: value ? const Color(0xFF2A77B4) : const Color(0xFF8D8D8D),
+            color: value
+                ? const Color(0xFF2A77B4)
+                : const Color(0xFF8D8D8D),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const SizedBox(
@@ -530,7 +559,10 @@ class _CompactSwitch extends StatelessWidget {
 }
 
 class _SessionAction extends StatelessWidget {
-  const _SessionAction({required this.label, required this.onPressed});
+  const _SessionAction({
+    required this.label,
+    required this.onPressed,
+  });
 
   final String label;
   final VoidCallback onPressed;
@@ -538,18 +570,30 @@ class _SessionAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
+      padding: const EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        18,
+      ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 11,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset(AppAssets.logout, width: 25, height: 25),
+                SvgPicture.asset(
+                  AppAssets.logout,
+                  width: 25,
+                  height: 25,
+                ),
                 const SizedBox(width: 13),
                 Text(
                   label,
@@ -571,15 +615,23 @@ class _SessionAction extends StatelessWidget {
 }
 
 class _InsetDivider extends StatelessWidget {
-  const _InsetDivider({required this.horizontalMargin});
+  const _InsetDivider({
+    required this.horizontalMargin,
+  });
 
   final double horizontalMargin;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
-      child: const Divider(height: 1, thickness: 1, color: Color(0xFFD0D0D0)),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalMargin,
+      ),
+      child: const Divider(
+        height: 1,
+        thickness: 1,
+        color: Color(0xFFD0D0D0),
+      ),
     );
   }
 }

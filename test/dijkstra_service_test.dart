@@ -108,6 +108,81 @@ void main() {
       expect(route.totalCost, 4);
     });
 
+    test(
+      'chooses a longer open route after the shortest segment closes',
+      () {
+        const edges = [
+          EdgeModel(
+            edgeId: 'E_A_B',
+            sourceNodeId: 'A',
+            targetNodeId: 'B',
+            traversalCost: 1,
+          ),
+          EdgeModel(
+            edgeId: 'E_B_D',
+            sourceNodeId: 'B',
+            targetNodeId: 'D',
+            traversalCost: 1,
+          ),
+          EdgeModel(
+            edgeId: 'E_A_C',
+            sourceNodeId: 'A',
+            targetNodeId: 'C',
+            traversalCost: 2,
+          ),
+          EdgeModel(
+            edgeId: 'E_C_D',
+            sourceNodeId: 'C',
+            targetNodeId: 'D',
+            traversalCost: 2,
+          ),
+        ];
+
+        final openGraph = _graph(
+          nodeIds: const ['A', 'B', 'C', 'D'],
+          edges: edges,
+        );
+
+        final shortestOpenRoute = dijkstra.findShortestRoute(
+          graph: openGraph,
+          startNodeId: 'A',
+          destinationNodeId: 'D',
+        );
+
+        expect(shortestOpenRoute.nodeIds, ['A', 'B', 'D']);
+        expect(shortestOpenRoute.edgeIds, ['E_A_B', 'E_B_D']);
+        expect(shortestOpenRoute.totalCost, 2);
+
+        final closedGraph = _graph(
+          nodeIds: const ['A', 'B', 'C', 'D'],
+          edges: [
+            edges[0],
+            const EdgeModel(
+              edgeId: 'E_B_D',
+              sourceNodeId: 'B',
+              targetNodeId: 'D',
+              traversalCost: 1,
+              isActive: false,
+              closureReason: 'Maintenance work',
+            ),
+            edges[2],
+            edges[3],
+          ],
+        );
+
+        final rerouted = dijkstra.findShortestRoute(
+          graph: closedGraph,
+          startNodeId: 'A',
+          destinationNodeId: 'D',
+        );
+
+        expect(rerouted.nodeIds, ['A', 'C', 'D']);
+        expect(rerouted.edgeIds, ['E_A_C', 'E_C_D']);
+        expect(rerouted.totalCost, 4);
+        expect(rerouted.edgeIds, isNot(contains('E_B_D')));
+      },
+    );
+
     test('returns one node when start and destination are the same', () {
       final graph = _graph(nodeIds: const ['A']);
 

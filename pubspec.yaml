@@ -184,6 +184,18 @@ flutter:
           style: italic
 
     # ------------------------------------------------------------
+    # Roboto Condensed
+    # ------------------------------------------------------------
+    - family: RobotoCondensed
+      fonts:
+        - asset: assets/fonts/Roboto/static/Roboto_Condensed-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Roboto/static/Roboto_Condensed-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Roboto/static/Roboto_Condensed-Bold.ttf
+          weight: 700
+
+    # ------------------------------------------------------------
     # Ubuntu
     # ------------------------------------------------------------
     - family: Ubuntu

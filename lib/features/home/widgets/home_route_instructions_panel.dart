@@ -10,13 +10,21 @@ class HomeRouteInstructionsPanel extends StatefulWidget {
   const HomeRouteInstructionsPanel({
     required this.instructions,
     required this.onStopPressed,
+    this.onNewSearchPressed,
     this.onSchedulePressed,
     this.onExpandedChanged,
     super.key,
   });
 
+  static const double instructionRowHeight = 58;
+  static const int collapsedVisibleInstructionRows = 2;
+  static const int expandedVisibleInstructionRows = 3;
+  static const double collapsedPanelChromeHeight = 40;
+  static const double expandedPanelChromeHeight = 145;
+
   final List<NavigationInstruction> instructions;
   final VoidCallback onStopPressed;
+  final VoidCallback? onNewSearchPressed;
   final VoidCallback? onSchedulePressed;
   final ValueChanged<bool>? onExpandedChanged;
 
@@ -28,7 +36,7 @@ class HomeRouteInstructionsPanel extends StatefulWidget {
 class _HomeRouteInstructionsPanelState
     extends State<HomeRouteInstructionsPanel> {
   static const Color _campusBlue = Color(0xFF2A77B4);
-  static const Color _subtitleColor = Color(0xFF69747E);
+  static const Color _subtitleColor = Color(0xFF5B5B5B);
   static const Duration _resizeDuration = Duration(milliseconds: 240);
 
   bool _isExpanded = false;
@@ -60,7 +68,9 @@ class _HomeRouteInstructionsPanelState
 
     final visibleInstructions = _isExpanded
         ? widget.instructions
-        : widget.instructions.take(2).toList(growable: false);
+        : widget.instructions
+              .take(HomeRouteInstructionsPanel.collapsedVisibleInstructionRows)
+              .toList(growable: false);
 
     return Material(
       color: Colors.white,
@@ -98,7 +108,12 @@ class _HomeRouteInstructionsPanelState
               children: [
                 ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: _isExpanded ? 348 : 116,
+                    maxHeight: HomeRouteInstructionsPanel.instructionRowHeight *
+                        (_isExpanded
+                            ? HomeRouteInstructionsPanel
+                                  .expandedVisibleInstructionRows
+                            : HomeRouteInstructionsPanel
+                                  .collapsedVisibleInstructionRows),
                   ),
                   child: ListView.builder(
                     shrinkWrap: true,
@@ -116,12 +131,17 @@ class _HomeRouteInstructionsPanelState
                   ),
                 ),
                 if (_isExpanded) ...[
+                  const SizedBox(height: 10),
+                  _NewRouteSearchField(
+                    onPressed: widget.onNewSearchPressed,
+                  ),
                   const SizedBox(height: 9),
                   Row(
                     children: [
                       Expanded(
+                        flex: 2,
                         child: SizedBox(
-                          height: 36,
+                          height: 40,
                           child: FilledButton(
                             onPressed: widget.onStopPressed,
                             style: FilledButton.styleFrom(
@@ -129,9 +149,9 @@ class _HomeRouteInstructionsPanelState
                               foregroundColor: Colors.white,
                               padding: EdgeInsets.zero,
                               textStyle: const TextStyle(
-                                fontFamily: 'Roboto',
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontFamily: 'Raleway',
+                                fontSize: 19,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                             child: const Text('Stop'),
@@ -141,9 +161,9 @@ class _HomeRouteInstructionsPanelState
                       if (widget.onSchedulePressed != null) ...[
                         const SizedBox(width: 8),
                         Expanded(
-                          flex: 2,
+                          flex: 3,
                           child: SizedBox(
-                            height: 36,
+                            height: 40,
                             child: OutlinedButton(
                               onPressed: widget.onSchedulePressed,
                               style: OutlinedButton.styleFrom(
@@ -151,9 +171,9 @@ class _HomeRouteInstructionsPanelState
                                 side: const BorderSide(color: _campusBlue),
                                 padding: EdgeInsets.zero,
                                 textStyle: const TextStyle(
-                                  fontFamily: 'Roboto',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontFamily: 'Raleway',
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                               child: const Text('Room Schedule'),
@@ -191,6 +211,55 @@ class _HomeRouteInstructionsPanelState
   }
 }
 
+class _NewRouteSearchField extends StatelessWidget {
+  const _NewRouteSearchField({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 46,
+      child: Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(25),
+          side: const BorderSide(
+            color: _HomeRouteInstructionsPanelState._campusBlue,
+            width: 1.7,
+          ),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(25),
+          onTap: onPressed,
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 15),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.search_rounded,
+                  size: 25,
+                  color: Color(0xFFABB4BF),
+                ),
+                SizedBox(width: 10),
+                Text(
+                  'New search',
+                  style: TextStyle(
+                    fontFamily: 'RobotoCondensed',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF9AA3AC),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _InstructionRow extends StatelessWidget {
   const _InstructionRow({required this.instruction, required this.isLast});
 
@@ -202,18 +271,18 @@ class _InstructionRow extends StatelessWidget {
     final detail = instruction.subtitle?.trim();
 
     return SizedBox(
-      height: 58,
+      height: HomeRouteInstructionsPanel.instructionRowHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 50,
+            width: 58,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 if (!isLast)
                   const Positioned(
-                    top: 35,
+                    top: 42,
                     bottom: 0,
                     child: SizedBox(
                       width: 1,
@@ -221,8 +290,8 @@ class _InstructionRow extends StatelessWidget {
                     ),
                   ),
                 Container(
-                  width: 37,
-                  height: 37,
+                  width: 46,
+                  height: 46,
                   decoration: const BoxDecoration(
                     color: Color(0xFFE8EDF4),
                     shape: BoxShape.circle,
@@ -233,7 +302,7 @@ class _InstructionRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 2),
+          const SizedBox(width: 5),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,24 +313,24 @@ class _InstructionRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 15,
+                    fontFamily: 'Raleway',
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    height: 1.12,
+                    height: 1.05,
                     color: Color(0xFF2A77B4),
                   ),
                 ),
                 if (detail != null && detail.isNotEmpty) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     detail,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 11,
+                      fontFamily: 'RobotoCondensed',
+                      fontSize: 17,
                       fontWeight: FontWeight.w500,
-                      height: 1.1,
+                      height: 1.05,
                       color: _HomeRouteInstructionsPanelState._subtitleColor,
                     ),
                   ),

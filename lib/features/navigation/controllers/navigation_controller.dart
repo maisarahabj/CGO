@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/navigation_repository.dart';
 import '../models/destination_model.dart';
+import '../models/edge_model.dart';
 import '../models/navigation_graph_data.dart';
 import '../models/route_result.dart';
 import '../services/dijkstra_service.dart';
@@ -39,7 +40,7 @@ class NavigationController extends ChangeNotifier {
 
   List<NavigationInstruction> _instructions = const [];
 
-  Future<void>? _graphLoadFuture;
+  Future<bool>? _graphLoadFuture;
 
   bool _isLoadingGraph = false;
 
@@ -84,25 +85,49 @@ class NavigationController extends ChangeNotifier {
   /// same node objects.
   ///
   /// Repeated or concurrent calls never duplicate the request.
-  Future<void> loadGraph() {
+  Future<void> loadGraph() async {
     if (_graph != null) {
-      return Future.value();
+      return;
     }
 
+    await _loadLatestGraph();
+  }
+
+  /// Public alerts are intentionally kept outside the active routing graph.
+  /// Reading a closure never makes that inactive edge available to Dijkstra.
+  Future<List<EdgeModel>> fetchClosedRouteNotices() {
+    return _repository.fetchClosedRouteNotices();
+  }
+
+  /// Reloads the current Supabase graph immediately before routing.
+  ///
+  /// The home screen keeps a cached graph for fast local destination search,
+  /// but an administrator may close or reopen an edge after that cache was
+  /// created. Every explicit Navigate action therefore obtains a fresh graph
+  /// snapshot before Dijkstra runs.
+  Future<RouteResult?> refreshGraphAndCalculateRoute() async {
+    if (currentLocationNodeId == null ||
+        destinationNodeId == null ||
+        currentLocationNodeId == destinationNodeId) {
+      return calculateRoute();
+    }
+
+    final didRefresh = await _loadLatestGraph();
+    if (!didRefresh) return null;
+
+    return calculateRoute();
+  }
+
+  Future<bool> _loadLatestGraph() {
     final activeLoad = _graphLoadFuture;
-
-    if (activeLoad != null) {
-      return activeLoad;
-    }
+    if (activeLoad != null) return activeLoad;
 
     final newLoad = _performGraphLoad();
-
     _graphLoadFuture = newLoad;
-
     return newLoad;
   }
 
-  Future<void> _performGraphLoad() async {
+  Future<bool> _performGraphLoad() async {
     _isLoadingGraph = true;
 
     _message = null;
@@ -110,21 +135,35 @@ class NavigationController extends ChangeNotifier {
     _notifyListenersSafely();
 
     try {
-      // Load all active edges once.
-      //
-      // Accessibility filtering is applied to this cached snapshot
-      // immediately before a route calculation.
+      // Load every currently active edge. Accessibility filtering is applied
+      // to this complete snapshot immediately before route calculation.
       final graph = await _repository.loadGraph(accessibleOnly: false);
 
       _graph = graph;
 
       _destinations = _repository.buildSearchableDestinations(graph.nodes);
+
+      // Preserve both endpoint selections by node ID while replacing their
+      // model instances with nodes from the fresh graph snapshot. QR-selected
+      // current locations are supported even when they are not searchable.
+      _currentLocation = _selectionFromGraph(
+        graph: graph,
+        nodeId: currentLocationNodeId,
+      );
+      _destination = _selectionFromGraph(
+        graph: graph,
+        nodeId: destinationNodeId,
+      );
+
+      return true;
     } catch (error, stackTrace) {
       _message = 'CampusGO could not load its navigation locations.';
 
       debugPrint('Navigation graph load failed: $error');
 
       debugPrintStack(stackTrace: stackTrace);
+
+      return false;
     } finally {
       _isLoadingGraph = false;
 
@@ -132,6 +171,16 @@ class NavigationController extends ChangeNotifier {
 
       _notifyListenersSafely();
     }
+  }
+
+  DestinationModel? _selectionFromGraph({
+    required NavigationGraphData graph,
+    required String? nodeId,
+  }) {
+    if (nodeId == null) return null;
+
+    final node = graph.nodeById[nodeId];
+    return node == null ? null : DestinationModel(node: node);
   }
 
   /// Filters the already-built destination list locally as the user types.

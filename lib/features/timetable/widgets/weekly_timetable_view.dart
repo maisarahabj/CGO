@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../models/timetable_model.dart';
 import 'schedule_entry_card.dart';
 
@@ -32,88 +33,146 @@ class WeeklyTimetableView extends StatelessWidget {
 
   final ValueChanged<TimetableModel>? onNavigate;
 
-  static const Color _blue = Color(0xFF176F9E);
+  static const Color _dayBlue = Color(0xFF185C92);
+  static const Color _headingBlue = Color(0xFF115388);
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return Stack(
       children: [
-        _daySelector(),
-        const SizedBox(height: 21),
-        const Text(
-          'Weekly Timetable',
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 19,
-            fontWeight: FontWeight.w700,
-            color: _blue,
-          ),
-        ),
-        const SizedBox(height: 10),
-        if (entries.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 42, horizontal: 24),
-            child: Column(
-              children: [
-                Icon(
-                  Icons.calendar_month_outlined,
-                  size: 44,
-                  color: Color(0xFF9AA3AA),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'You have no classes saved for this day.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 14,
-                    color: Color(0xFF7A8289),
-                  ),
+        Positioned.fill(
+          top: 31,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(42)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x240C3450),
+                  blurRadius: 18,
+                  offset: Offset(0, -3),
                 ),
               ],
             ),
-          )
-        else
-          ...entries.map(
-            (entry) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              child: ScheduleEntryCard(
-                key: ValueKey('saved-${entry.timetableId}'),
-                entry: entry,
-                isOngoing: currentClass?.timetableId == entry.timetableId,
-                isBusy: isBusy(entry.timetableId),
-                onNavigate: onNavigate == null
-                    ? null
-                    : () {
-                        final callback = onNavigate;
-
-                        if (callback != null) {
-                          callback(entry);
-                        }
-                      },
-                onRemove: () => onRemove(entry),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(42),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: Colors.white),
+                  Opacity(
+                    opacity: 0.07,
+                    child: Image.asset(
+                      AppAssets.loginBackground,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xDFFFFFFF), Color(0xF5FFFFFF)],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
+        ),
+        Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: _daySelector(),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Weekly Timetable',
+              style: TextStyle(
+                fontFamily: 'Raleway',
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
+                color: _headingBlue,
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (entries.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 42, horizontal: 24),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.calendar_month_outlined,
+                      size: 44,
+                      color: Color(0xFF9AA3AA),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'You have no classes saved for this day.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'RobotoCondensed',
+                        fontFamilyFallback: ['Roboto'],
+                        fontSize: 15,
+                        color: Color(0xFF7A8289),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              ...entries.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 5,
+                  ),
+                  child: ScheduleEntryCard(
+                    key: ValueKey('saved-${entry.timetableId}'),
+                    entry: entry,
+                    isOngoing: currentClass?.timetableId == entry.timetableId,
+                    isBusy: isBusy(entry.timetableId),
+                    onNavigate: onNavigate == null
+                        ? null
+                        : () {
+                            final callback = onNavigate;
+
+                            if (callback != null) {
+                              callback(entry);
+                            }
+                          },
+                    onRemove: () => onRemove(entry),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 18),
+          ],
+        ),
       ],
     );
   }
 
   Widget _daySelector() {
     return Container(
-      height: 61,
+      height: 65,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.10),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
       child: Row(
         children: days.map((day) {
           final selected = day == selectedDay;
@@ -128,18 +187,20 @@ class WeeklyTimetableView extends StatelessWidget {
                   Text(
                     _shortDay(day),
                     style: const TextStyle(
-                      fontFamily: 'Raleway',
-                      fontSize: 14,
+                      fontFamily: 'RobotoFlex',
+                      fontFamilyFallback: ['RobotoCondensed', 'Roboto'],
+                      fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      color: _blue,
+                      color: _dayBlue,
+                      height: 1,
                     ),
                   ),
                   const SizedBox(height: 5),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    width: selected ? 30 : 0,
-                    height: 2,
-                    color: _blue,
+                    width: selected ? 37 : 0,
+                    height: 2.5,
+                    color: _dayBlue,
                   ),
                 ],
               ),

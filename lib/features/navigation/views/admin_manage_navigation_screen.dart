@@ -82,6 +82,7 @@ class _AdminManageNavigationScreenState
     final firstNode = _firstSelectedNodeId;
 
     if (firstNode == null) {
+      debugPrint('Admin map selection: first-node=$nodeId');
       setState(() {
         _firstSelectedNodeId = nodeId;
         _selectedEdgeId = null;
@@ -90,6 +91,7 @@ class _AdminManageNavigationScreenState
     }
 
     if (firstNode == nodeId) {
+      debugPrint('Admin map selection: cancelled-node=$nodeId');
       setState(() {
         _firstSelectedNodeId = null;
         _selectedEdgeId = null;
@@ -97,21 +99,22 @@ class _AdminManageNavigationScreenState
       return;
     }
 
+    debugPrint('Admin map selection: second-node=$nodeId');
     final edge = _controller.routeBetweenNodes(firstNode, nodeId);
 
     if (edge == null) {
-      setState(() {
-        _firstSelectedNodeId = nodeId;
-        _selectedEdgeId = null;
-      });
+      debugPrint(
+        'Admin map selection: no-edge-between=$firstNode,$nodeId',
+      );
       _showMessage(
         '$firstNode and $nodeId are not directly connected. '
-        'Select a node connected to $nodeId.',
+        'Select another node connected to $firstNode.',
         isError: true,
       );
       return;
     }
 
+    debugPrint('Admin map selection: edge=${edge.edgeId}');
     setState(() {
       _firstSelectedNodeId = null;
       _selectedEdgeId = edge.edgeId;
@@ -134,7 +137,10 @@ class _AdminManageNavigationScreenState
   }
 
   Set<String> _visiblePreviewFloors(EdgeModel? edge) {
-    return <String>{_previewFloor};
+    if (edge == null) return <String>{_previewFloor};
+
+    final edgeFloors = _controller.routeFloors(edge);
+    return edgeFloors.isEmpty ? <String>{_previewFloor} : edgeFloors.toSet();
   }
 
   Future<void> _manageSelectedRoute() async {
@@ -343,7 +349,8 @@ class _AdminManageNavigationScreenState
                 child: Text(
                   _firstSelectedNodeId == null
                       ? 'Tap two connected green nodes or select a route below.'
-                      : 'Selected $_firstSelectedNodeId — tap a connected node.',
+                      : 'Select another node connected to '
+                            '$_firstSelectedNodeId.',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

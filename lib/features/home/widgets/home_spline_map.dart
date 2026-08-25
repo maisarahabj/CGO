@@ -177,6 +177,9 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     const campusFloorNames = ['L9', 'L8', 'L6', 'L3', 'L1', 'G'];
     const floorObjects = new Map();
     const nodeGroupObjects = new Map();
+    const nodeObjectsByName = new Map();
+    const nodeCountsByFloor = new Map();
+    const nodeMouseDownCountsByFloor = new Map();
     const nodeNamePattern = /^(?:G|L1|L3|L6|L8|L9)_N[0-9]+\$/;
     let nodeSelectionEnabled = false;
     let selectedNodeFloor = null;
@@ -217,11 +220,80 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       sendToFlutter('node-group-indexed:' + nodeGroupObjects.size);
     }
 
+    function getEventsForObject(eventName, object) {
+      return (
+        spline.eventManager?.handlers?.Basic?.eventsPerObjects?.[eventName]?.[
+          object.uuid
+        ] ?? []
+      );
+    }
+
+    function indexNodeObjects() {
+      nodeObjectsByName.clear();
+      nodeCountsByFloor.clear();
+      nodeMouseDownCountsByFloor.clear();
+
+      campusFloorNames.forEach(function(floorName) {
+        nodeCountsByFloor.set(floorName, 0);
+        nodeMouseDownCountsByFloor.set(floorName, 0);
+      });
+
+      const duplicateCounts = new Map();
+
+      spline.getAllObjects().forEach(function(object) {
+        const objectName = typeof object.name === 'string'
+          ? object.name.trim()
+          : '';
+
+        if (!nodeNamePattern.test(objectName)) return;
+
+        const floorName = objectName.split('_')[0];
+        nodeCountsByFloor.set(
+          floorName,
+          (nodeCountsByFloor.get(floorName) ?? 0) + 1
+        );
+
+        const mouseDownEvents = getEventsForObject('MouseDown', object);
+        if (Array.isArray(mouseDownEvents) && mouseDownEvents.length > 0) {
+          nodeMouseDownCountsByFloor.set(
+            floorName,
+            (nodeMouseDownCountsByFloor.get(floorName) ?? 0) + 1
+          );
+        }
+
+        if (nodeObjectsByName.has(objectName)) {
+          duplicateCounts.set(
+            objectName,
+            (duplicateCounts.get(objectName) ?? 1) + 1
+          );
+          return;
+        }
+
+        nodeObjectsByName.set(objectName, object);
+      });
+
+      sendToFlutter('node-object-indexed:' + nodeObjectsByName.size);
+
+      campusFloorNames.forEach(function(floorName) {
+        sendToFlutter(
+          'node-floor-indexed:' + floorName + ':' +
+            (nodeCountsByFloor.get(floorName) ?? 0) + ':mouseDown=' +
+            (nodeMouseDownCountsByFloor.get(floorName) ?? 0)
+        );
+      });
+
+      duplicateCounts.forEach(function(count, nodeName) {
+        sendToFlutter('node-name-duplicate:' + nodeName + ':' + count);
+      });
+    }
+
     window.configureNodeSelection = function(enabled, floorName) {
       nodeSelectionEnabled = enabled === true;
       selectedNodeFloor = campusFloorNames.includes(String(floorName))
         ? String(floorName)
         : null;
+      previousNodeSelection = null;
+      previousNodeSelectionTime = 0;
 
       campusFloorNames.forEach(function(name) {
         const nodeGroup = nodeGroupObjects.get(name);
@@ -235,6 +307,31 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
       });
 
       spline.requestRender();
+
+      if (nodeSelectionEnabled && selectedNodeFloor !== null) {
+        const nodeGroup = nodeGroupObjects.get(selectedNodeFloor);
+        const nodeCount = nodeCountsByFloor.get(selectedNodeFloor) ?? 0;
+        const mouseDownCount =
+          nodeMouseDownCountsByFloor.get(selectedNodeFloor) ?? 0;
+
+        if (!nodeGroup) {
+          sendToFlutter(
+            'node-selection-error:Missing ' + selectedNodeFloor +
+              '_nodes in the published scene.'
+          );
+        } else if (nodeCount === 0) {
+          sendToFlutter(
+            'node-selection-error:No named nodes were indexed for ' +
+              selectedNodeFloor + '.'
+          );
+        } else if (mouseDownCount < nodeCount) {
+          sendToFlutter(
+            'node-click-events-missing:' + selectedNodeFloor + ':' +
+              mouseDownCount + '/' + nodeCount
+          );
+        }
+      }
+
       sendToFlutter(
         'node-selection-configured:' +
           (nodeSelectionEnabled ? selectedNodeFloor : 'OFF')
@@ -280,9 +377,15 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
         return;
       }
 
+      /*
+       * Application listeners receive Spline events authored in the editor;
+       * they are not raw DOM hit tests. Each named green node therefore owns
+       * a Mouse Down event in Spline. Listening only to Mouse Down also keeps
+       * node selection independent from the floors' existing Mouse Up camera
+       * events.
+       */
       spline.addEventListener('mouseDown', reportTappedNode);
-      spline.addEventListener('mouseUp', reportTappedNode);
-      sendToFlutter('node-selection-listeners-ready');
+      sendToFlutter('node-selection-listeners-ready:mouseDown');
     }
 
     window.setVisibleFloors = function(floorNames) {
@@ -543,11 +646,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
     const originalFloorMouseUpDispatches = new WeakMap();
 
     function getMouseUpEventsForObject(object) {
-      return (
-        spline.eventManager?.handlers?.Basic?.eventsPerObjects?.MouseUp?.[
-          object.uuid
-        ] ?? []
-      );
+      return getEventsForObject('MouseUp', object);
     }
 
     function installFlutterOnlyFloorMouseUpGuards() {
@@ -581,7 +680,14 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
           try {
             event.dispatch = function() {
-              sendToFlutter('floor-map-click-blocked:' + floorName);
+              /*
+               * A node Mouse Down can be followed by the floor's Mouse Up.
+               * The camera action must still be suppressed, but that normal
+               * admin sequence should not be reported as a failed node tap.
+               */
+              if (!nodeSelectionEnabled) {
+                sendToFlutter('floor-map-click-blocked:' + floorName);
+              }
             };
           } catch (error) {
             sendToFlutter(
@@ -770,6 +876,7 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
          */
         indexFloorObjects();
         indexNodeGroups();
+        indexNodeObjects();
         installFlutterOnlyFloorMouseUpGuards();
         indexRouteEdges();
         installNodeSelectionListeners();
@@ -905,8 +1012,12 @@ class _HomeSplineMapState extends State<HomeSplineMap> {
 
     if (value.startsWith('node-group-indexed:') ||
         value.startsWith('node-group-missing:') ||
+        value.startsWith('node-object-indexed:') ||
+        value.startsWith('node-floor-indexed:') ||
+        value.startsWith('node-name-duplicate:') ||
+        value.startsWith('node-click-events-missing:') ||
         value.startsWith('node-selection-configured:') ||
-        value == 'node-selection-listeners-ready') {
+        value.startsWith('node-selection-listeners-ready:')) {
       return;
     }
 

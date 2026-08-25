@@ -103,6 +103,30 @@ class NavigationRepository {
     }
   }
 
+  /// Loads public route-closure announcements without adding those edges to
+  /// the graph used for navigation.
+  ///
+  /// A dedicated Supabase SELECT policy exposes only inactive edges that have
+  /// a nonblank closure reason. [fetchActiveEdges] continues to request
+  /// `is_active = true`, so guests and registered users can read an alert
+  /// without ever being routed through its closed segment.
+  Future<List<EdgeModel>> fetchClosedRouteNotices() async {
+    try {
+      final rows = await _client
+          .from(DatabaseTables.edges)
+          .select(_edgeColumns)
+          .eq('is_active', false)
+          .order('edge_id');
+
+      return rows
+          .map((row) => EdgeModel.fromJson(Map<String, dynamic>.from(row)))
+          .where((edge) => edge.closureReason?.trim().isNotEmpty == true)
+          .toList(growable: false);
+    } catch (error) {
+      throw AppException('Unable to load closed route notices.', cause: error);
+    }
+  }
+
   /// Loads every navigation edge for the administrator, including closed
   /// edges. User and guest routing must continue using [fetchActiveEdges].
   Future<List<EdgeModel>> fetchManageableEdges() async {
@@ -142,6 +166,19 @@ class NavigationRepository {
       throw const AppException('Select a reason before closing this route.');
     }
 
+    if (_client.auth.currentUser == null) {
+      throw const AppException(
+        'Sign in with an administrator account before managing routes.',
+      );
+    }
+
+    debugPrint(
+      'CampusGO admin edge update requested: '
+      'edge=$normalizedEdgeId, '
+      'is_active=$isActive, '
+      'closure_reason=${isActive ? 'null' : normalizedReason}',
+    );
+
     try {
       final row = await _client
           .from(DatabaseTables.edges)
@@ -151,10 +188,69 @@ class NavigationRepository {
           })
           .eq('edge_id', normalizedEdgeId)
           .select(_edgeColumns)
-          .single();
+          .maybeSingle();
 
-      return EdgeModel.fromJson(Map<String, dynamic>.from(row));
+      if (row == null) {
+        throw const AppException(
+          'Supabase did not return the updated route. Check that this account '
+          'is an admin and that public.edges allows admins to UPDATE routes '
+          'and SELECT closed routes.',
+        );
+      }
+
+      final updated = EdgeModel.fromJson(Map<String, dynamic>.from(row));
+
+      debugPrint(
+        'CampusGO admin edge update saved: '
+        'edge=${updated.edgeId}, '
+        'is_active=${updated.isActive}, '
+        'closure_reason=${updated.closureReason}',
+      );
+
+      return updated;
+    } on AppException {
+      rethrow;
+    } on PostgrestException catch (error) {
+      final operation = isActive ? 'reopen' : 'close';
+      final databaseMessage = error.message.trim();
+      final normalizedMessage = databaseMessage.toLowerCase();
+
+      debugPrint(
+        'CampusGO admin edge update failed: '
+        'edge=$normalizedEdgeId, '
+        'code=${error.code}, '
+        'message=$databaseMessage, '
+        'details=${error.details}, '
+        'hint=${error.hint}',
+      );
+
+      if (error.code == '42501' ||
+          normalizedMessage.contains('row-level security') ||
+          normalizedMessage.contains('permission denied')) {
+        throw AppException(
+          'Supabase denied permission to $operation this route. Check the '
+          'admin UPDATE and SELECT policies on public.edges and confirm that '
+          'your profile role is admin.',
+          cause: error,
+        );
+      }
+
+      if (normalizedMessage.contains('closure_reason')) {
+        throw AppException(
+          'Supabase could not update closure_reason: $databaseMessage',
+          cause: error,
+        );
+      }
+
+      throw AppException(
+        'Unable to $operation this route segment: $databaseMessage',
+        cause: error,
+      );
     } catch (error) {
+      debugPrint(
+        'CampusGO admin edge update failed unexpectedly: '
+        'edge=$normalizedEdgeId, error=$error',
+      );
       throw AppException(
         'Unable to ${isActive ? 'reopen' : 'close'} this route segment.',
         cause: error,

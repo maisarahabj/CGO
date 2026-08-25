@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/navigation_repository.dart';
 import '../models/destination_model.dart';
+import '../models/edge_model.dart';
 import '../models/navigation_graph_data.dart';
 import '../models/route_result.dart';
 import '../services/dijkstra_service.dart';
@@ -90,6 +91,12 @@ class NavigationController extends ChangeNotifier {
     }
 
     await _loadLatestGraph();
+  }
+
+  /// Public alerts are intentionally kept outside the active routing graph.
+  /// Reading a closure never makes that inactive edge available to Dijkstra.
+  Future<List<EdgeModel>> fetchClosedRouteNotices() {
+    return _repository.fetchClosedRouteNotices();
   }
 
   /// Reloads the current Supabase graph immediately before routing.

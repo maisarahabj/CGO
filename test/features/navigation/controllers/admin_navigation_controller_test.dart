@@ -32,38 +32,44 @@ void main() {
       expect(controller.routeEndpointSummary(java), contains('Java'));
     });
 
-    test('floor filtering includes a cross-floor edge on either floor', () async {
-      await controller.loadRouteSegments();
+    test(
+      'floor filtering includes a cross-floor edge on either floor',
+      () async {
+        await controller.loadRouteSegments();
 
-      controller.setSelectedFloor('L8');
-      expect(
-        controller.filteredRouteSegments.map((edge) => edge.edgeId),
-        containsAll(<String>['E_L9N1_L8N1', 'E_L8N9_L8N12']),
-      );
+        controller.setSelectedFloor('L8');
+        expect(
+          controller.filteredRouteSegments.map((edge) => edge.edgeId),
+          containsAll(<String>['E_L9N1_L8N1', 'E_L8N9_L8N12']),
+        );
 
-      controller.setSelectedFloor('L9');
-      expect(
-        controller.filteredRouteSegments.map((edge) => edge.edgeId),
-        <String>['E_L9N1_L8N1'],
-      );
-    });
+        controller.setSelectedFloor('L9');
+        expect(
+          controller.filteredRouteSegments.map((edge) => edge.edgeId),
+          <String>['E_L9N1_L8N1'],
+        );
+      },
+    );
 
-    test('closing a route changes is_active but preserves accessibility', () async {
-      await controller.loadRouteSegments();
-      final lift = controller.routeById('E_L9N1_L8N1')!;
+    test(
+      'closing a route changes is_active but preserves accessibility',
+      () async {
+        await controller.loadRouteSegments();
+        final lift = controller.routeById('E_L9N1_L8N1')!;
 
-      final succeeded = await controller.updateRouteAvailability(
-        edge: lift,
-        isActive: false,
-      );
+        final succeeded = await controller.updateRouteAvailability(
+          edge: lift,
+          isActive: false,
+        );
 
-      final closedLift = controller.routeById(lift.edgeId)!;
-      expect(succeeded, isTrue);
-      expect(closedLift.isActive, isFalse);
-      expect(closedLift.isAccessible, isTrue);
-      expect(repository.lastUpdatedEdgeId, lift.edgeId);
-      expect(repository.lastUpdatedActiveValue, isFalse);
-    });
+        final closedLift = controller.routeById(lift.edgeId)!;
+        expect(succeeded, isTrue);
+        expect(closedLift.isActive, isFalse);
+        expect(closedLift.isAccessible, isTrue);
+        expect(repository.lastUpdatedEdgeId, lift.edgeId);
+        expect(repository.lastUpdatedActiveValue, isFalse);
+      },
+    );
   });
 }
 
@@ -112,6 +118,7 @@ class _FakeAdminNavigationRepository implements NavigationRepository {
   Future<EdgeModel> updateEdgeActiveState({
     required String edgeId,
     required bool isActive,
+    String? closureReason,
   }) async {
     lastUpdatedEdgeId = edgeId;
     lastUpdatedActiveValue = isActive;

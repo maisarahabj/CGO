@@ -12,7 +12,7 @@ class AdminNavigationDrawer extends StatelessWidget {
     required this.onDashboardPressed,
     required this.onMapManagementPressed,
     required this.onSettingsPressed,
-    required this.onPrivacyLegalHelpPressed,
+    required this.onPrivacyLegalPressed,
     required this.onLogoutPressed,
     this.profile,
     super.key,
@@ -23,7 +23,7 @@ class AdminNavigationDrawer extends StatelessWidget {
   final VoidCallback onDashboardPressed;
   final VoidCallback onMapManagementPressed;
   final VoidCallback onSettingsPressed;
-  final VoidCallback onPrivacyLegalHelpPressed;
+  final VoidCallback onPrivacyLegalPressed;
   final Future<void> Function() onLogoutPressed;
 
   @override
@@ -84,9 +84,9 @@ class AdminNavigationDrawer extends StatelessWidget {
                   ),
                   const _AdminDivider(horizontalMargin: 28),
                   _AdminMenuItem(
-                    title: 'Privacy, Legal and Help',
+                    title: 'Privacy & Legal',
                     iconAsset: AppAssets.helpAndFeedback,
-                    onTap: onPrivacyLegalHelpPressed,
+                    onTap: onPrivacyLegalPressed,
                   ),
                   const _AdminDivider(horizontalMargin: 28),
                 ],

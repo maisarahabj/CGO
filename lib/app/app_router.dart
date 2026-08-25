@@ -15,11 +15,9 @@ import '../features/navigation/views/qr_scanner_screen.dart';
 import '../features/navigation/views/visit_history_screen.dart';
 import '../features/notifications/views/admin_manage_notifications_screen.dart';
 import '../features/notifications/views/notifications_screen.dart';
-import '../features/profile/views/admin_manage_users_screen.dart';
 import '../features/profile/views/edit_profile_screen.dart';
 import '../features/settings/views/settings_screen.dart';
 import '../features/support/views/admin_manage_issue_reports_screen.dart';
-import '../features/support/views/privacy_legal_help_screen.dart';
 import '../features/support/views/support_screen.dart';
 import '../features/timetable/views/admin_manage_timetable_screen.dart';
 import '../features/timetable/views/timetable_screen.dart';
@@ -29,6 +27,7 @@ import '../features/settings/views/about_screen.dart';
 import '../features/settings/views/privacy_policy_screen.dart';
 import '../features/settings/views/terms_of_use_screen.dart';
 import '../features/support/views/admin_manage_faq_screen.dart';
+import '../features/settings/views/admin_privacy_legal_screen.dart';
 export 'app_routes.dart';
 
 abstract final class AppRouter {
@@ -225,18 +224,11 @@ abstract final class AppRouter {
           authController: authController,
           screen: const AdminQrCheckpointsScreen(),
         );
-
-      case AppRoutes.adminUserProfiles:
+      case AppRoutes.adminPrivacyLegal:
         return _adminRoute(
           settings: settings,
           authController: authController,
-          screen: const AdminManageUsersScreen(),
-        );
-
-      case AppRoutes.privacyLegalHelp:
-        return MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) => const PrivacyLegalHelpScreen(),
+          screen: const AdminPrivacyLegalScreen(),
         );
 
       default:

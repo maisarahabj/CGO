@@ -52,7 +52,21 @@ abstract final class AppAssets {
   static const String helpAndFeedback =
       'assets/features/settings/icons/settings_faq.svg';
 
-  // Ongoing-class illustration.
-  static const String classroomIllustration =
+  // Destination illustrations used by the active-route summary panel.
+  static const String destinationClassroom =
       'assets/shared/illustrations/rooms/node_classroom_icon.png';
+  static const String destinationFacilities =
+      'assets/shared/illustrations/rooms/node_facilities.png';
+  static const String destinationOffice =
+      'assets/shared/illustrations/rooms/node_office.png';
+  static const String destinationSurau =
+      'assets/shared/illustrations/rooms/node_surau.png';
+
+  // The CURRENT asset filename in the supplied project contains "washsroom".
+  // Keep this exact path unless the file itself is renamed in assets.
+  static const String destinationWashroom =
+      'assets/shared/illustrations/rooms/node_washsroom.png';
+
+  // Ongoing-class illustration.
+  static const String classroomIllustration = destinationClassroom;
 }

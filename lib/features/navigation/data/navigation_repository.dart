@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/constants/database_tables.dart';
@@ -7,6 +10,7 @@ import '../models/edge_model.dart';
 import '../models/floor_model.dart';
 import '../models/navigation_graph_data.dart';
 import '../models/node_model.dart';
+import '../models/qr_code_model.dart';
 
 /// The only navigation class that reads graph data directly from Supabase.
 ///
@@ -18,14 +22,22 @@ class NavigationRepository {
 
   final SupabaseClient _client;
 
+  static const String qrImageBucket = 'qr-checkpoints';
+  static const int _maximumQrImageBytes = 5 * 1024 * 1024;
+
   static const String _floorColumns =
       'floor_id, level_number, floor_name, spline_url, is_accessible';
+
   static const String _nodeColumns =
       'node_id, floor_id, node_code, node_type, label, description, '
       'x_coord, y_coord, z_coord, tags, is_active';
+
   static const String _edgeColumns =
       'edge_id, source_node_id, target_node_id, traversal_cost, edge_type, '
       'description, distance_weight, is_accessible, is_active';
+
+  static const String _qrColumns =
+      'qr_id, node_id, qr_value, location_description, status, qr_image_path';
 
   /// Loads the floors that exist in the CampusGO map.
   Future<List<FloorModel>> fetchFloors() async {
@@ -44,6 +56,7 @@ class NavigationRepository {
   }
 
   /// Loads every active node, including hidden corridor junctions.
+  ///
   /// Junctions are needed by Dijkstra even though they are not shown in search.
   Future<List<NodeModel>> fetchActiveNodes() async {
     try {
@@ -61,10 +74,16 @@ class NavigationRepository {
     }
   }
 
-  /// Loads active walking, lift, stair, auditorium, and other route edges.
+  /// Loads active navigation edges.
   ///
-  /// Accessibility filtering happens before the list reaches Dijkstra. When
-  /// [accessibleOnly] is true, a stair row marked inaccessible cannot be used.
+  /// When [accessibleOnly] is false:
+  /// - every active edge is returned.
+  ///
+  /// When [accessibleOnly] is true:
+  /// - only edges where is_accessible = true are returned.
+  ///
+  /// Supabase is the source of truth for whether an edge is accessible.
+  /// Dart does not infer accessibility from edge_type or node_type.
   Future<List<EdgeModel>> fetchActiveEdges({
     bool accessibleOnly = false,
   }) async {
@@ -87,6 +106,9 @@ class NavigationRepository {
   }
 
   /// Loads one internally consistent graph snapshot for Dijkstra.
+  ///
+  /// Accessibility filtering is controlled entirely by the
+  /// edges.is_accessible value from Supabase.
   Future<NavigationGraphData> loadGraph({bool accessibleOnly = false}) async {
     final results = await Future.wait<Object>([
       fetchFloors(),
@@ -94,23 +116,32 @@ class NavigationRepository {
       fetchActiveEdges(accessibleOnly: accessibleOnly),
     ]);
 
-    return NavigationGraphData(
+    final graph = NavigationGraphData(
       floors: results[0] as List<FloorModel>,
       nodes: results[1] as List<NodeModel>,
       edges: results[2] as List<EdgeModel>,
     );
+
+    return graphForRouting(graph: graph, accessibleOnly: accessibleOnly);
   }
 
   /// Creates the graph snapshot that may be passed to Dijkstra.
   ///
-  /// The controller loads the complete active graph from Supabase once. When
-  /// accessibility mode changes, this method filters that already-loaded edge
-  /// list in memory instead of downloading the same floors and nodes again.
+  /// This method is useful when the controller already has the full graph
+  /// loaded in memory and the user changes the accessibility toggle.
+  ///
+  /// Accessibility OFF:
+  ///   all active edges remain available.
+  ///
+  /// Accessibility ON:
+  ///   only edges where is_accessible = true remain available.
   NavigationGraphData graphForRouting({
     required NavigationGraphData graph,
     required bool accessibleOnly,
   }) {
-    if (!accessibleOnly) return graph;
+    if (!accessibleOnly) {
+      return graph;
+    }
 
     return NavigationGraphData(
       floors: graph.floors,
@@ -121,10 +152,315 @@ class NavigationRepository {
     );
   }
 
-  /// Resolves a QR or manually selected node ID to one active node.
+  /// Loads all existing checkpoints, including inactive ones, for admins.
+  ///
+  /// Scanner lookups remain separate because an administrator must be able to
+  /// see and reactivate records that a normal user cannot currently scan.
+  Future<List<QrCodeModel>> fetchQrCheckpoints() async {
+    try {
+      final rows = await _client
+          .from(DatabaseTables.qrCodes)
+          .select(_qrColumns)
+          .order('qr_id');
+
+      return rows
+          .map((row) => QrCodeModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+    } catch (error) {
+      throw AppException(
+        _checkpointErrorMessage('Unable to load QR checkpoints', error),
+        cause: error,
+      );
+    }
+  }
+
+  /// Updates the physical location represented by one existing checkpoint.
+  ///
+  /// qr_value is intentionally never changed here. The printed QR can contain
+  /// a value such as CAMPUSGO_L8_LIFT while qr_id is displayed as QR005. Its
+  /// physical code must continue scanning after the assigned node is changed.
+  Future<QrCodeModel> updateQrCheckpoint({
+    required String qrId,
+    required String nodeId,
+    required String locationDescription,
+    required bool isActive,
+    String? existingImagePath,
+    Uint8List? imageBytes,
+    String? imageExtension,
+  }) async {
+    final normalizedQrId = qrId.trim();
+    final normalizedNodeId = nodeId.trim();
+    final normalizedDescription = locationDescription.trim();
+
+    if (normalizedQrId.isEmpty) {
+      throw const AppException('A checkpoint ID is required.');
+    }
+
+    if (normalizedNodeId.isEmpty) {
+      throw const AppException('Select a navigation node for this checkpoint.');
+    }
+
+    if (normalizedDescription.isEmpty) {
+      throw const AppException('Enter a checkpoint location name.');
+    }
+
+    String? uploadedImagePath;
+
+    try {
+      if (imageBytes != null) {
+        uploadedImagePath = await uploadQrCheckpointImage(
+          qrId: normalizedQrId,
+          imageBytes: imageBytes,
+          extension: imageExtension,
+        );
+      }
+
+      final row = await _client
+          .from(DatabaseTables.qrCodes)
+          .update(<String, dynamic>{
+            'node_id': normalizedNodeId,
+            'location_description': normalizedDescription,
+            'status': isActive ? 'active' : 'inactive',
+            if (uploadedImagePath != null) 'qr_image_path': uploadedImagePath,
+          })
+          .eq('qr_id', normalizedQrId)
+          .select(_qrColumns)
+          .single();
+
+      final updated = QrCodeModel.fromJson(Map<String, dynamic>.from(row));
+      final previousImagePath = existingImagePath?.trim();
+
+      if (uploadedImagePath != null &&
+          previousImagePath != null &&
+          previousImagePath.isNotEmpty &&
+          previousImagePath != uploadedImagePath) {
+        await _tryDeleteQrCheckpointImage(previousImagePath);
+      }
+
+      return updated;
+    } catch (error) {
+      if (uploadedImagePath != null) {
+        await _tryDeleteQrCheckpointImage(uploadedImagePath);
+      }
+
+      throw AppException(
+        _checkpointErrorMessage(
+          'Unable to update checkpoint $normalizedQrId',
+          error,
+        ),
+        cause: error,
+      );
+    }
+  }
+
+  /// Creates a checkpoint and optionally links its uploaded QR image.
+  ///
+  /// Existing records keep their current qr_value. New checkpoints may use
+  /// their generated QR ID as the scan value because findQrByValue already
+  /// supports any exact, non-empty value stored in qr_codes.qr_value.
+  Future<QrCodeModel> createQrCheckpoint({
+    required String qrId,
+    required String qrValue,
+    required String nodeId,
+    required String locationDescription,
+    required bool isActive,
+    Uint8List? imageBytes,
+    String? imageExtension,
+  }) async {
+    final normalizedQrId = qrId.trim();
+    final normalizedQrValue = qrValue.trim();
+    final normalizedNodeId = nodeId.trim();
+    final normalizedDescription = locationDescription.trim();
+
+    if (normalizedQrId.isEmpty || normalizedQrValue.isEmpty) {
+      throw const AppException('A checkpoint ID and QR value are required.');
+    }
+
+    if (normalizedNodeId.isEmpty) {
+      throw const AppException('Select a navigation node for this checkpoint.');
+    }
+
+    if (normalizedDescription.isEmpty) {
+      throw const AppException('Enter a checkpoint location name.');
+    }
+
+    String? uploadedImagePath;
+
+    try {
+      if (imageBytes != null) {
+        uploadedImagePath = await uploadQrCheckpointImage(
+          qrId: normalizedQrId,
+          imageBytes: imageBytes,
+          extension: imageExtension,
+        );
+      }
+
+      final row = await _client
+          .from(DatabaseTables.qrCodes)
+          .insert(<String, dynamic>{
+            'qr_id': normalizedQrId,
+            'node_id': normalizedNodeId,
+            'qr_value': normalizedQrValue,
+            'location_description': normalizedDescription,
+            'status': isActive ? 'active' : 'inactive',
+            if (uploadedImagePath != null) 'qr_image_path': uploadedImagePath,
+          })
+          .select(_qrColumns)
+          .single();
+
+      return QrCodeModel.fromJson(Map<String, dynamic>.from(row));
+    } catch (error) {
+      if (uploadedImagePath != null) {
+        await _tryDeleteQrCheckpointImage(uploadedImagePath);
+      }
+
+      throw AppException(
+        _checkpointErrorMessage(
+          'Unable to create checkpoint $normalizedQrId',
+          error,
+        ),
+        cause: error,
+      );
+    }
+  }
+
+  /// Uploads an administrator-provided QR image and returns its bucket path.
+  ///
+  /// The path, rather than a permanent URL, is stored in qr_codes so the
+  /// database remains independent of the project's Supabase domain.
+  Future<String> uploadQrCheckpointImage({
+    required String qrId,
+    required Uint8List imageBytes,
+    required String? extension,
+  }) async {
+    final normalizedQrId = qrId.trim().toUpperCase();
+    final normalizedExtension = extension?.trim().toLowerCase();
+
+    if (normalizedQrId.isEmpty) {
+      throw const AppException('A checkpoint ID is required for image upload.');
+    }
+
+    if (imageBytes.isEmpty) {
+      throw const AppException('The selected QR image is empty.');
+    }
+
+    if (imageBytes.lengthInBytes > _maximumQrImageBytes) {
+      throw const AppException('Choose a QR image smaller than 5 MB.');
+    }
+
+    if (normalizedExtension == null ||
+        !const <String>{'png', 'jpg', 'jpeg', 'webp'}
+            .contains(normalizedExtension)) {
+      throw const AppException('Choose a PNG, JPG, JPEG, or WEBP QR image.');
+    }
+
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    final imagePath = '$normalizedQrId/$timestamp.$normalizedExtension';
+    final contentType = normalizedExtension == 'jpg' ||
+            normalizedExtension == 'jpeg'
+        ? 'image/jpeg'
+        : 'image/$normalizedExtension';
+
+    await _client.storage.from(qrImageBucket).uploadBinary(
+          imagePath,
+          imageBytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+
+    return imagePath;
+  }
+
+  /// Resolves an uploaded QR image in the public qr-checkpoints bucket.
+  String? qrCheckpointImageUrl(String? imagePath) {
+    final normalizedPath = imagePath?.trim();
+
+    if (normalizedPath == null || normalizedPath.isEmpty) return null;
+
+    return _client.storage.from(qrImageBucket).getPublicUrl(normalizedPath);
+  }
+
+  /// Best-effort cleanup never makes an otherwise successful save fail.
+  Future<void> _tryDeleteQrCheckpointImage(String imagePath) async {
+    try {
+      await _client.storage.from(qrImageBucket).remove(<String>[imagePath]);
+    } catch (error) {
+      debugPrint('Unable to remove unused checkpoint image $imagePath: $error');
+    }
+  }
+
+  String _checkpointErrorMessage(String action, Object error) {
+    if (error is AppException && error.message.trim().isNotEmpty) {
+      return '$action: ${error.message}';
+    }
+
+    if (error is PostgrestException && error.message.trim().isNotEmpty) {
+      return '$action: ${error.message}';
+    }
+
+    if (error is StorageException && error.message.trim().isNotEmpty) {
+      return '$action: ${error.message}';
+    }
+
+    return '$action. Please try again.';
+  }
+
+  /// Finds one CampusGO QR checkpoint by the exact value stored inside the QR.
+  ///
+  /// Example:
+  /// CAMPUSGO_L6_LIFT
+  ///        ↓
+  /// qr_codes
+  ///        ↓
+  /// L6_N1
+  ///
+  /// Inactive checkpoints are also returned so the scanner can distinguish
+  /// between "unknown QR" and "known but inactive QR".
+  Future<QrCodeModel?> findQrByValue(String qrValue) async {
+    final normalizedValue = qrValue.trim();
+
+    if (normalizedValue.isEmpty) {
+      return null;
+    }
+
+    try {
+      final row = await _client
+          .from(DatabaseTables.qrCodes)
+          .select(_qrColumns)
+          .eq('qr_value', normalizedValue)
+          .maybeSingle();
+
+      // TEMPORARY DEBUG:
+      // This tells us exactly what Supabase returned for the QR lookup.
+      debugPrint('QR DEBUG: requested="$normalizedValue", returned=$row');
+
+      if (row == null) {
+        return null;
+      }
+
+      return QrCodeModel.fromJson(Map<String, dynamic>.from(row));
+    } catch (error) {
+      throw AppException(
+        'Unable to verify that CampusGO QR checkpoint.',
+        cause: error,
+      );
+    }
+  }
+
+  /// Resolves the node_id obtained from the QR table into the existing
+  /// navigation NodeModel.
+  ///
+  /// Example:
+  /// L6_N1
+  ///   ↓
+  /// nodes table
+  ///   ↓
+  /// NodeModel
   Future<NodeModel?> findActiveNodeById(String nodeId) async {
     final normalizedId = nodeId.trim();
-    if (normalizedId.isEmpty) return null;
+
+    if (normalizedId.isEmpty) {
+      return null;
+    }
 
     try {
       final row = await _client
@@ -134,7 +470,10 @@ class NavigationRepository {
           .eq('is_active', true)
           .maybeSingle();
 
-      if (row == null) return null;
+      if (row == null) {
+        return null;
+      }
+
       return NodeModel.fromJson(Map<String, dynamic>.from(row));
     } catch (error) {
       throw AppException(
@@ -144,15 +483,18 @@ class NavigationRepository {
     }
   }
 
-  /// Loads the labelled node list once. The UI can then filter it instantly as
-  /// the user types instead of sending one network request for every letter.
+  /// Loads the labelled node list once.
+  ///
+  /// The UI can then filter it locally instead of sending one Supabase request
+  /// for every character the user types.
   Future<List<DestinationModel>> fetchSearchableDestinations() async {
     final nodes = await fetchActiveNodes();
+
     return buildSearchableDestinations(nodes);
   }
 
-  /// Derives search results from nodes that have already been loaded as part of
-  /// [loadGraph], avoiding a second request for the same node rows.
+  /// Derives searchable locations from nodes that are already loaded as part
+  /// of the navigation graph.
   List<DestinationModel> buildSearchableDestinations(
     Iterable<NodeModel> nodes,
   ) {
@@ -166,22 +508,28 @@ class NavigationRepository {
         second.name.toLowerCase(),
       );
 
-      if (nameComparison != 0) return nameComparison;
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+
       return first.nodeId.compareTo(second.nodeId);
     });
 
     return List.unmodifiable(destinations);
   }
 
-  /// Pure in-memory search used after [fetchSearchableDestinations].
+  /// Pure in-memory search used after the searchable destinations are loaded.
   List<DestinationModel> filterDestinations({
     required List<DestinationModel> destinations,
     required String query,
     int limit = 12,
   }) {
-    if (limit <= 0) return const [];
+    if (limit <= 0) {
+      return const [];
+    }
 
     final normalizedQuery = query.trim();
+
     if (normalizedQuery.isEmpty) {
       return destinations.take(limit).toList(growable: false);
     }

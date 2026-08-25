@@ -25,7 +25,10 @@ class IssueReportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser!.id;
     return ChangeNotifierProvider(
-      create: (_) => IssueReportController(IssueReportService(Supabase.instance.client), userId),
+      create: (_) => IssueReportController(
+        IssueReportService(Supabase.instance.client),
+        userId,
+      ),
       child: const _IssueReportScreenBody(),
     );
   }
@@ -36,7 +39,10 @@ class _IssueReportScreenBody extends StatelessWidget {
 
   Future<({Uint8List bytes, String extension})?> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (picked == null) return null;
 
     final bytes = await picked.readAsBytes();
@@ -55,10 +61,19 @@ class _IssueReportScreenBody extends StatelessWidget {
         elevation: 0,
         actions: [
           TextButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const IssueReportHistoryScreen()),
-            ),
+            onPressed: () {
+              final controller = context.read<IssueReportController>();
+
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      ChangeNotifierProvider<IssueReportController>.value(
+                        value: controller,
+                        child: const IssueReportHistoryScreen(),
+                      ),
+                ),
+              );
+            },
             child: const Text('History'),
           ),
         ],
@@ -77,25 +92,33 @@ class _IssueReportScreenBody extends StatelessWidget {
               child: IssueReportForm(
                 isSubmitting: controller.isSubmitting,
                 onPickImage: _pickImage,
-                onSubmit: ({
-                  required category,
-                  required description,
-                  attachmentBytes,
-                  attachmentExtension,
-                }) async {
-                  final success = await controller.submitReport(
-                    category: category,
-                    description: description,
-                    attachmentBytes: attachmentBytes,
-                    attachmentExtension: attachmentExtension,
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(success ? 'Report submitted!' : (controller.error ?? 'Something went wrong.'))),
-                    );
-                    if (success) Navigator.pop(context);
-                  }
-                },
+                onSubmit:
+                    ({
+                      required category,
+                      required description,
+                      attachmentBytes,
+                      attachmentExtension,
+                    }) async {
+                      final success = await controller.submitReport(
+                        category: category,
+                        description: description,
+                        attachmentBytes: attachmentBytes,
+                        attachmentExtension: attachmentExtension,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? 'Report submitted!'
+                                  : (controller.error ??
+                                        'Something went wrong.'),
+                            ),
+                          ),
+                        );
+                        if (success) Navigator.pop(context);
+                      }
+                    },
               ),
             ),
           );

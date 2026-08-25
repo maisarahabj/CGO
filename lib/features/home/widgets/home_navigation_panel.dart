@@ -413,7 +413,7 @@ class _ScheduleClassCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      scheduledClass.timeRange,
+                      scheduledClass.scheduleTimeLabel,
                       style: const TextStyle(
                         fontFamily: 'Roboto',
                         fontSize: 12,
@@ -502,7 +502,7 @@ class _ScheduleClassCard extends StatelessWidget {
                           'Navigate Now',
                           style: TextStyle(
                             fontFamily: 'Raleway',
-                            fontSize: 9,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -536,7 +536,7 @@ class _EmptyScheduleCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE3E7EA)),
       ),
       child: const Text(
-        'No more classes are scheduled for today.',
+        'No upcoming classes are saved in your schedule.',
         textAlign: TextAlign.center,
         style: TextStyle(
           fontFamily: 'Roboto',

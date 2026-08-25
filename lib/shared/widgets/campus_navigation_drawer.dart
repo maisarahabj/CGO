@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/constants/app_assets.dart';
 import '../../features/profile/models/profile_model.dart';
+import '../../features/notifications/widgets/unread_notification_badge.dart';
 
 class CampusNavigationDrawer extends StatelessWidget {
   const CampusNavigationDrawer({
@@ -16,6 +17,7 @@ class CampusNavigationDrawer extends StatelessWidget {
     required this.onAccessibilityChanged,
     required this.onHelpPressed,
     required this.onSessionAction,
+    this.unreadNotificationCount = 0,
     this.onProfilePressed,
     this.profile,
     super.key,
@@ -30,6 +32,7 @@ class CampusNavigationDrawer extends StatelessWidget {
   final ValueChanged<bool> onAccessibilityChanged;
   final VoidCallback onHelpPressed;
   final Future<void> Function() onSessionAction;
+  final int unreadNotificationCount;
   final VoidCallback? onProfilePressed;
 
   @override
@@ -47,7 +50,11 @@ class CampusNavigationDrawer extends StatelessWidget {
       child: SafeArea(
         child: Column(
           children: [
-            _CloseDrawerButton(onPressed: () => Navigator.of(context).pop()),
+            _CloseDrawerButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
             _ProfileHeader(
               isRegisteredUser: isRegisteredUser,
               profile: profile,
@@ -65,17 +72,36 @@ class CampusNavigationDrawer extends StatelessWidget {
                       title: 'Notification',
                       iconAsset: AppAssets.drawerNotification,
                       onTap: onNotificationPressed,
+                      trailing: UnreadNotificationBadge(
+                        count: unreadNotificationCount,
+                      ),
                     ),
-                    const _InsetDivider(horizontalMargin: 28),
-                    _DrawerMenuItem(
-                      title: 'Timetable',
-                      description:
-                          'Class schedules\nRoom availability\nReserve & view bookings',
-                      iconAsset: AppAssets.drawerTimetable,
-                      onTap: onTimetablePressed,
-                    ),
+
                     const _InsetDivider(horizontalMargin: 28),
                   ],
+
+                  // Timetable is available to both registered users
+                  // and guests.
+                  //
+                  // Registered users can access their personal
+                  // schedule, room availability and booking-related
+                  // functionality.
+                  //
+                  // Guests only receive access to public class
+                  // schedules and room availability.
+                  _DrawerMenuItem(
+                    title: 'Timetable',
+                    description: isRegisteredUser
+                        ? 'Class schedules\n'
+                              'Room availability\n'
+                              'Reserve & view bookings'
+                        : 'Class schedules\n'
+                              'Room availability',
+                    iconAsset: AppAssets.drawerTimetable,
+                    onTap: onTimetablePressed,
+                  ),
+                  const _InsetDivider(horizontalMargin: 28),
+
                   _DrawerMenuItem(
                     title: 'Settings',
                     iconAsset: AppAssets.drawerSettings,
@@ -86,10 +112,12 @@ class CampusNavigationDrawer extends StatelessWidget {
                   _DrawerMenuItem(
                     title: 'Accessibility',
                     description:
-                        'Wheelchair accessible\nAvoid steps and prefer lifts',
+                        'Wheelchair accessible\n'
+                        'Avoid steps and prefer lifts',
                     iconAsset: AppAssets.drawerAccess,
-                    onTap: () =>
-                        onAccessibilityChanged(!isAccessibilityEnabled),
+                    onTap: () {
+                      onAccessibilityChanged(!isAccessibilityEnabled);
+                    },
                     trailingBelow: _CompactSwitch(
                       value: isAccessibilityEnabled,
                       onChanged: onAccessibilityChanged,
@@ -109,6 +137,7 @@ class CampusNavigationDrawer extends StatelessWidget {
               label: isRegisteredUser ? 'Log out' : 'Sign in',
               onPressed: () async {
                 Navigator.of(context).pop();
+
                 await onSessionAction();
               },
             ),
@@ -286,17 +315,19 @@ class _ProfileAvatar extends StatelessWidget {
                 : Image.network(
                     imageUrl!,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Center(
-                      child: Text(
-                        initials,
-                        style: const TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF1E1E1E),
+                    errorBuilder: (_, __, ___) {
+                      return Center(
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            fontFamily: 'Roboto',
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF1E1E1E),
+                          ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
           ),
           if (showCamera)
@@ -367,6 +398,7 @@ class _DrawerMenuItem extends StatelessWidget {
     required this.iconAsset,
     required this.onTap,
     this.description,
+    this.trailing,
     this.trailingBelow,
     this.verticalPadding = 14,
   });
@@ -375,6 +407,7 @@ class _DrawerMenuItem extends StatelessWidget {
   final String? description;
   final String iconAsset;
   final VoidCallback onTap;
+  final Widget? trailing;
   final Widget? trailingBelow;
   final double verticalPadding;
 
@@ -388,7 +421,7 @@ class _DrawerMenuItem extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(
             36,
             verticalPadding,
-            13,
+            28,
             verticalPadding,
           ),
           child: Row(
@@ -444,6 +477,7 @@ class _DrawerMenuItem extends StatelessWidget {
                   ],
                 ),
               ),
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
             ],
           ),
         ),
@@ -465,7 +499,9 @@ class _CompactSwitch extends StatelessWidget {
       button: true,
       label: 'Wheelchair accessible routes',
       child: InkWell(
-        onTap: () => onChanged(!value),
+        onTap: () {
+          onChanged(!value);
+        },
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),

@@ -54,11 +54,12 @@ class HomeLocationFields extends StatelessWidget {
             tooltip: 'Scan current-location QR checkpoint',
             onPressed: onQrPressed,
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+            constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+            splashRadius: 22,
             icon: SvgPicture.asset(
               AppAssets.scanQr,
-              width: 32,
-              height: 32,
+              width: 38,
+              height: 38,
               fit: BoxFit.contain,
             ),
           ),
@@ -262,7 +263,7 @@ class _CurrentLocationField extends StatelessWidget {
         onTap: onPressed,
         child: Container(
           height: 55,
-          padding: const EdgeInsets.fromLTRB(20, 0, 17, 0),
+          padding: const EdgeInsets.fromLTRB(20, 0, 12, 0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: const Color(0xFF2A77B4), width: 1.25),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../features/timetable/views/my_schedule_screen.dart';
 import '../features/bookings/views/bookings_screen.dart';
 import '../features/admin/views/admin_dashboard_screen.dart';
 import '../features/auth/controllers/auth_controller.dart';
@@ -8,7 +8,10 @@ import '../features/auth/views/auth_gate.dart';
 import '../features/bookings/views/admin_manage_bookings_screen.dart';
 import '../features/home/views/guest_home_screen.dart';
 import '../features/home/views/user_home_screen.dart';
+import '../features/navigation/models/node_model.dart';
 import '../features/navigation/views/admin_manage_navigation_screen.dart';
+import '../features/navigation/views/admin_qr_checkpoints_screen.dart';
+import '../features/navigation/views/qr_scanner_screen.dart';
 import '../features/notifications/views/admin_manage_notifications_screen.dart';
 import '../features/notifications/views/notifications_screen.dart';
 import '../features/profile/views/admin_manage_users_screen.dart';
@@ -19,9 +22,12 @@ import '../features/support/views/privacy_legal_help_screen.dart';
 import '../features/support/views/support_screen.dart';
 import '../features/timetable/views/admin_manage_timetable_screen.dart';
 import '../features/timetable/views/timetable_screen.dart';
-
+import '../features/support/views/issue_report_screen.dart';
 import 'app_routes.dart';
-
+import '../features/settings/views/about_screen.dart';
+import '../features/settings/views/privacy_policy_screen.dart';
+import '../features/settings/views/terms_of_use_screen.dart';
+import '../features/support/views/admin_manage_faq_screen.dart';
 export 'app_routes.dart';
 
 abstract final class AppRouter {
@@ -44,10 +50,17 @@ abstract final class AppRouter {
         );
 
       case AppRoutes.userHome:
+        final initialDestinationNodeId = settings.arguments is String
+            ? (settings.arguments as String).trim()
+            : null;
+
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => authController.role == UserRole.user
-              ? UserHomeScreen(authController: authController)
+              ? UserHomeScreen(
+                  authController: authController,
+                  initialDestinationNodeId: initialDestinationNodeId,
+                )
               : AuthGate(authController: authController),
         );
 
@@ -70,9 +83,17 @@ abstract final class AppRouter {
       case AppRoutes.timetable:
         return MaterialPageRoute<void>(
           settings: settings,
-          builder: (_) => authController.role == UserRole.user
-              ? const TimetableScreen()
-              : AuthGate(authController: authController),
+          builder: (_) {
+            if (authController.role == UserRole.user) {
+              return const MyScheduleScreen();
+            }
+
+            if (authController.role == UserRole.guest) {
+              return const TimetableScreen(guestMode: true);
+            }
+
+            return AuthGate(authController: authController);
+          },
         );
 
       case AppRoutes.settings:
@@ -80,13 +101,35 @@ abstract final class AppRouter {
           settings: settings,
           builder: (_) => const SettingsScreen(),
         );
+      case AppRoutes.aboutCampusGo:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const AboutScreen(),
+        );
 
+      case AppRoutes.termsOfUse:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const TermsOfUseScreen(),
+        );
+
+      case AppRoutes.privacyPolicy:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => const PrivacyPolicyScreen(),
+        );
       case AppRoutes.support:
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => const SupportScreen(),
         );
-
+      case AppRoutes.issueReport:
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => authController.role == UserRole.user
+              ? const IssueReportScreen()
+              : AuthGate(authController: authController),
+        );
       case AppRoutes.editProfile:
         return MaterialPageRoute<void>(
           settings: settings,
@@ -98,6 +141,12 @@ abstract final class AppRouter {
 
             return AuthGate(authController: authController);
           },
+        );
+
+      case AppRoutes.qrScanner:
+        return MaterialPageRoute<NodeModel>(
+          settings: settings,
+          builder: (_) => const QrScannerScreen(),
         );
 
       case AppRoutes.adminNotifications:
@@ -122,12 +171,12 @@ abstract final class AppRouter {
         );
 
       case AppRoutes.bookings:
-  return MaterialPageRoute<void>(
-    settings: settings,
-    builder: (_) => authController.role == UserRole.user
-        ? const BookingsScreen()
-        : AuthGate(authController: authController),
-  );
+        return MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => authController.role == UserRole.user
+              ? const BookingsScreen()
+              : AuthGate(authController: authController),
+        );
 
       case AppRoutes.adminMapManagement:
         return _adminRoute(
@@ -146,8 +195,6 @@ abstract final class AppRouter {
             pageTitle: 'Route Management',
           ),
         );
-      
-      
 
       case AppRoutes.adminIssueReports:
         return _adminRoute(
@@ -155,14 +202,18 @@ abstract final class AppRouter {
           authController: authController,
           screen: const AdminManageIssueReportsScreen(),
         );
+      case AppRoutes.adminFaq:
+        return _adminRoute(
+          settings: settings,
+          authController: authController,
+          screen: const AdminManageFaqScreen(),
+        );
 
       case AppRoutes.adminQrCheckpoints:
         return _adminRoute(
           settings: settings,
           authController: authController,
-          screen: const AdminManageNavigationScreen(
-            pageTitle: 'QR Checkpoints',
-          ),
+          screen: const AdminQrCheckpointsScreen(),
         );
 
       case AppRoutes.adminUserProfiles:

@@ -18,7 +18,6 @@ class ProfileModel {
   final String role;
   final DateTime? createdAt;
 
-  /// Converts a Supabase profile row into a ProfileModel.
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
     return ProfileModel(
       id: json['id'] as String,
@@ -31,12 +30,10 @@ class ProfileModel {
     );
   }
 
-  /// Alias used by services that refer to a Supabase row as a map.
   factory ProfileModel.fromMap(Map<String, dynamic> map) {
     return ProfileModel.fromJson(map);
   }
 
-  /// Converts this model back into Supabase column names.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -49,10 +46,6 @@ class ProfileModel {
     };
   }
 
-  /// Produces initials for the profile-photo fallback.
-  ///
-  /// "Jane Doe" becomes "JD".
-  /// "Jane" becomes "J".
   String get initials {
     final cleanedName = fullName?.trim();
 
@@ -79,7 +72,6 @@ class ProfileModel {
     return '$firstInitial$lastInitial'.toUpperCase();
   }
 
-  /// UI-friendly name for the `prof_pic` database field.
   String? get profileImageUrl {
     return _cleanOptionalText(profPic);
   }

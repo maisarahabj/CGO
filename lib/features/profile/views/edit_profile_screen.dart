@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/temporary_linked_screen.dart';
 import '../models/profile_model.dart';
+import 'profile_screen.dart';
 
 class EditProfileScreen extends StatelessWidget {
   const EditProfileScreen({required this.profile, super.key});
@@ -10,9 +10,6 @@ class EditProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const TemporaryLinkedScreen(
-      title: 'Edit Information',
-      pageName: 'Edit Information',
-    );
+    return ProfileScreen(profile: profile);
   }
 }

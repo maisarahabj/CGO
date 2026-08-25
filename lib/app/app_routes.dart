@@ -12,6 +12,7 @@ abstract final class AppRoutes {
   static const String timetable = '/timetable';
   static const String bookings = '/bookings';
   static const String settings = '/settings';
+  static const String visitHistory = '/settings/visit-history';
 
   static const String support = '/support';
   static const String issueReport = '/support/issue-report';

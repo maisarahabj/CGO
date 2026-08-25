@@ -725,6 +725,14 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
+    // A visit represents a route the user actually started, not every search
+    // suggestion they viewed. Guest routes are intentionally never recorded.
+    // Saving runs independently so a Supabase permission issue cannot prevent
+    // the already-valid route from appearing on the map.
+    if (_isRegisteredUser && result.nodeIds.isNotEmpty) {
+      unawaited(_recordVisitHistory(result.nodeIds.last));
+    }
+
     debugPrint('CampusGO route node IDs: ${result.nodeIds.join(' -> ')}');
     debugPrint('CampusGO route edge IDs: ${result.edgeIds.join(' -> ')}');
     debugPrint('CampusGO route total cost: ${result.totalCost}');
@@ -739,6 +747,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _collapseNavigationPanel();
+  }
+
+  Future<void> _recordVisitHistory(String destinationNodeId) async {
+    try {
+      await _navigationController.recordVisit(
+        destinationNodeId: destinationNodeId,
+      );
+    } catch (error, stackTrace) {
+      debugPrint('CampusGO visit history save failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
   }
 
   void _endNavigation() {

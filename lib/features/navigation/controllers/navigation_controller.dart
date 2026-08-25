@@ -98,6 +98,15 @@ class NavigationController extends ChangeNotifier {
     return _repository.fetchClosedRouteNotices();
   }
 
+  /// Persists the destination of a successfully started registered-user route.
+  ///
+  /// HomeScreen calls this only after route calculation succeeds, keeping
+  /// searches, guests, failed routes, and accessibility refreshes out of the
+  /// user's visit history.
+  Future<void> recordVisit({required String destinationNodeId}) {
+    return _repository.recordVisit(destinationNodeId: destinationNodeId);
+  }
+
   /// Reloads the current Supabase graph immediately before routing.
   ///
   /// The home screen keeps a cached graph for fast local destination search,

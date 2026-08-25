@@ -214,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _setAccessibility(bool value) {
+  Future<void> _setAccessibility(bool value) async {
     if (_navigationController.accessibleOnly == value) return;
 
     // Only reroute automatically when the user already had an active route.
@@ -228,11 +228,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!hadActiveRoute) return;
 
-    // Recalculate the same Current Location -> Destination immediately using
-    // the newly filtered routing graph. If accessible mode leaves no valid
-    // path, calculateRoute() keeps the old route cleared and exposes the
-    // appropriate "No accessible route" message instead of falling back.
-    final result = _navigationController.calculateRoute();
+    // Recalculate from a fresh Supabase snapshot so an administrator's latest
+    // route closure is also respected while accessibility mode changes.
+    final result = await _navigationController.refreshGraphAndCalculateRoute();
+
+    if (!mounted) return;
 
     if (result == null) {
       _showMessage(
@@ -554,11 +554,17 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _startNavigation() {
+  Future<void> _startNavigation() async {
     _currentLocationFocusNode.unfocus();
     _destinationFocusNode.unfocus();
 
-    final result = _navigationController.calculateRoute();
+    // The graph used for destination search is cached, but route availability
+    // is operational data. Reload active edges before every explicit Navigate
+    // action so an admin closure affects the next Dijkstra calculation.
+    final result = await _navigationController.refreshGraphAndCalculateRoute();
+
+    if (!mounted) return;
+
     if (result == null) {
       _showMessage(
         _navigationController.message ??
@@ -659,7 +665,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await widget.onScheduleRefresh?.call();
   }
 
-  void _navigateToClass(OngoingClassModel scheduledClass) {
+  Future<void> _navigateToClass(OngoingClassModel scheduledClass) async {
     if (!_ensureNavigationReady()) return;
 
     final roomNodeId = scheduledClass.roomNodeId.trim();
@@ -688,7 +694,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // If the user already has a current location, "Navigate Now" can start
     // the route immediately using the existing Dijkstra pipeline.
     if (_navigationController.currentLocation != null) {
-      _startNavigation();
+      await _startNavigation();
       return;
     }
 

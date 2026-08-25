@@ -64,8 +64,8 @@ class AdminDashboardScreen extends StatelessWidget {
           onSettingsPressed: () {
             _openFromDrawer(context, AppRoutes.settings);
           },
-          onPrivacyLegalHelpPressed: () {
-            _openFromDrawer(context, AppRoutes.privacyLegalHelp);
+          onPrivacyLegalPressed: () {
+            _openFromDrawer(context, AppRoutes.adminPrivacyLegal);
           },
           onLogoutPressed: () => _signOut(context),
         ),
@@ -180,11 +180,11 @@ class AdminDashboardScreen extends StatelessWidget {
                                 },
                               ),
                               _AdminActionButton(
-                                label: 'User Profiles',
+                                label: 'Privacy & Legal',
                                 onPressed: () {
                                   Navigator.of(
                                     context,
-                                  ).pushNamed(AppRoutes.adminUserProfiles);
+                                  ).pushNamed(AppRoutes.adminPrivacyLegal);
                                 },
                               ),
                             ],

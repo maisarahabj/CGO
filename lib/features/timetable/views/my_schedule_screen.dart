@@ -1,7 +1,11 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../app/app_routes.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../controllers/schedule_controller.dart';
 import '../models/timetable_model.dart';
@@ -22,27 +26,25 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
   bool _isAccessibilityEnabled = false;
 
-  static const Color _blue = Color(0xFF176F9E);
+  static const Color _headingBlue = Color(0xFF2A77B4);
+  static const Color _headingOrange = Color(0xFFF76B00);
+  static const Color _bannerInk = Color(0xFF3C5F7B);
 
   @override
   void initState() {
     super.initState();
-
     _controller = ScheduleController();
-
     _controller.loadSchedule();
   }
 
   @override
   void dispose() {
     _controller.dispose();
-
     super.dispose();
   }
 
   void _closeDrawerThen(VoidCallback action) {
     Navigator.of(context).pop();
-
     action();
   }
 
@@ -71,41 +73,34 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
       isRegisteredUser: true,
       profile: null,
       isAccessibilityEnabled: _isAccessibilityEnabled,
-
       onProfilePressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.editProfile);
         });
       },
-
       onNotificationPressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.notifications);
         });
       },
-
       onTimetablePressed: () {
         Navigator.of(context).pop();
       },
-
       onSettingsPressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.settings);
         });
       },
-
       onAccessibilityChanged: (value) {
         setState(() {
           _isAccessibilityEnabled = value;
         });
       },
-
       onHelpPressed: () {
         _closeDrawerThen(() {
           Navigator.of(context).pushNamed(AppRoutes.support);
         });
       },
-
       onSessionAction: _handleSessionAction,
     );
   }
@@ -132,27 +127,51 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
               return _errorState();
             }
 
-            return RefreshIndicator(
-              onRefresh: _controller.loadSchedule,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _findRoomBanner(),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 30),
-                    child: WeeklyTimetableView(
-                      days: ScheduleController.weekDays,
-                      selectedDay: _controller.selectedDay,
-                      entries: _controller.selectedDayEntries,
-                      currentClass: _controller.currentClass,
-                      onDaySelected: _controller.setSelectedDay,
-                      onNavigate: _handleNavigate,
-                      onRemove: _removeEntry,
-                      isBusy: _controller.isBusy,
-                    ),
+            return Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _findRoomBanner(),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 160,
+                  bottom: 0,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return RefreshIndicator(
+                        onRefresh: _controller.loadSchedule,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: WeeklyTimetableView(
+                                  days: ScheduleController.weekDays,
+                                  selectedDay: _controller.selectedDay,
+                                  entries: _controller.selectedDayEntries,
+                                  currentClass: _controller.currentClass,
+                                  onDaySelected: _controller.setSelectedDay,
+                                  onNavigate: _handleNavigate,
+                                  onRemove: _removeEntry,
+                                  isBusy: _controller.isBusy,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),
@@ -162,44 +181,51 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      toolbarHeight: 64,
+      toolbarHeight: 70,
       backgroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       surfaceTintColor: Colors.white,
       leading: IconButton(
         tooltip: 'Open menu',
+        splashRadius: 22,
         onPressed: () {
           _scaffoldKey.currentState?.openDrawer();
         },
-        icon: const Icon(Icons.menu, color: Colors.black87, size: 27),
+        icon: SvgPicture.asset(AppAssets.hamburger, width: 27),
       ),
-      title: RichText(
-        text: const TextSpan(
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
+      title: const FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+            children: [
+              TextSpan(
+                text: 'Campus',
+                style: TextStyle(color: Color(0xFF38358E)),
+              ),
+              TextSpan(
+                text: 'GO',
+                style: TextStyle(color: Color(0xFFFF0000)),
+              ),
+            ],
           ),
-          children: [
-            TextSpan(
-              text: 'Campus',
-              style: TextStyle(color: Color(0xFF342C86)),
-            ),
-            TextSpan(
-              text: 'GO',
-              style: TextStyle(color: Color(0xFFE31919)),
-            ),
-          ],
         ),
       ),
       actions: [
         IconButton(
           tooltip: 'Close',
+          splashRadius: 22,
           onPressed: () {
             Navigator.of(context).maybePop();
           },
-          icon: const Icon(Icons.close, color: Colors.black87, size: 27),
+          icon: SvgPicture.asset(AppAssets.closeButton, width: 23),
         ),
         const SizedBox(width: 4),
       ],
@@ -207,62 +233,143 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
   }
 
   Widget _findRoomBanner() {
-    return Container(
-      height: 155,
-      decoration: const BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage('assets/features/auth/login_background.png'),
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-        ),
-      ),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(145, 17, 14, 14),
-        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
+    return SizedBox(
+      height: 228,
+      width: double.infinity,
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            const Text(
-              'Find a Room',
-              style: TextStyle(
-                fontFamily: 'Raleway',
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: _blue,
+            Positioned(
+              left: -40,
+              right: 0,
+              top: -18,
+              height: 630,
+              child: Image.asset(
+                AppAssets.loginBackground,
+                fit: BoxFit.cover,
+                // Adjust this alignment to reposition the UNIMY artwork.
+                alignment: const Alignment(-0.70, -0.42),
               ),
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Find your classroom and keep track '
-              'of your daily schedule all in one place.',
-              style: TextStyle(
-                fontFamily: 'Roboto',
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF27333C),
-              ),
-            ),
-            const SizedBox(height: 9),
-            SizedBox(
-              height: 28,
-              child: FilledButton(
-                onPressed: _openRoomSchedule,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                ),
-                child: const Text(
-                  'VIEW ROOM SCHEDULE',
-                  style: TextStyle(
-                    fontFamily: 'Raleway',
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
+            ColoredBox(color: Colors.white.withValues(alpha: 0.10)),
+            Positioned(
+              left: 112,
+              right: 2,
+              top: 13,
+              bottom: 65,
+              child: IgnorePointer(
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: 28.45,
+                    sigmaY: 28.45,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(57),
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xEBE8EFFF),
+                          Color(0xEBFFFFFF),
+                          Color(0xEBE8EFFF),
+                        ],
+                        stops: [0, 0.53, 1],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
+            Positioned(
+              left: 132,
+              right: 12,
+              top: 10,
+              bottom: 67,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          fontFamily: 'Raleway',
+                          fontSize: 35,
+                          fontWeight: FontWeight.w700,
+                          height: 1.04,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Find a ',
+                            style: TextStyle(color: _headingBlue),
+                          ),
+                          TextSpan(
+                            text: 'Room',
+                            style: TextStyle(color: _headingOrange),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'Find your classroom and keep track of your '
+                    'daily schedule all in one place.',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'RobotoCondensed',
+                      fontFamilyFallback: ['Roboto'],
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: _bannerInk,
+                      height: 1.04,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _bannerButton(
+                    text: 'VIEW ROOM SCHEDULE',
+                    onTap: _openRoomSchedule,
+                  ),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bannerButton({
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: _bannerInk,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontFamily: 'Raleway',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
         ),
       ),
     );

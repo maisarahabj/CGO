@@ -1,8 +1,13 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../controllers/schedule_controller.dart';
+
 import '../../../app/app_routes.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
+import '../controllers/schedule_controller.dart';
 import '../controllers/timetable_controller.dart';
 import '../models/timetable_model.dart';
 import '../widgets/timetable_entry_card.dart';
@@ -30,7 +35,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   bool _isAccessibilityEnabled = false;
 
-  static const Color _blue = Color(0xFF176F9E);
+  static const Color _blue = Color(0xFF2A77B4);
+  static const Color _headingBlue = Color(0xFF115388);
+  static const Color _headingOrange = Color(0xFFF76B00);
+  static const Color _bannerInk = Color(0xFF3C5F7B);
+  static const Color _dayBlue = Color(0xFF185C92);
   static const Color _green = Color(0xFF78C66A);
   static const Color _lightGreen = Color(0xFFEDF8EC);
 
@@ -174,12 +183,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
               return _errorState();
             }
 
-            return Column(
+            return Stack(
               children: [
-                _buildBanner(),
-                _buildRoomSearch(),
-                _buildDaySelector(),
-                Expanded(child: _buildRoomSchedule()),
+                Positioned(left: 0, right: 0, top: 0, child: _buildBanner()),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 160,
+                  bottom: 0,
+                  child: _buildRoundedTimetableSurface(),
+                ),
               ],
             );
           },
@@ -188,47 +201,112 @@ class _TimetableScreenState extends State<TimetableScreen> {
     );
   }
 
+  Widget _buildRoundedTimetableSurface() {
+    return Stack(
+      children: [
+        Positioned.fill(
+          top: 30,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(42)),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x240C3450),
+                  blurRadius: 18,
+                  offset: Offset(0, -3),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(42),
+              ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: Colors.white),
+                  Opacity(
+                    opacity: 0.08,
+                    child: Image.asset(
+                      AppAssets.loginBackground,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
+                  ),
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xDBFFFFFF), Color(0xF5FFFFFF)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Column(
+          children: [
+            _buildRoomSearch(),
+            _buildDaySelector(),
+            Expanded(child: _buildRoomSchedule()),
+          ],
+        ),
+      ],
+    );
+  }
+
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      toolbarHeight: 64,
+      toolbarHeight: 70,
       backgroundColor: Colors.white,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: true,
       surfaceTintColor: Colors.white,
       leading: IconButton(
         tooltip: 'Open menu',
+        splashRadius: 22,
         onPressed: () {
           FocusScope.of(context).unfocus();
           _scaffoldKey.currentState?.openDrawer();
         },
-        icon: const Icon(Icons.menu, color: Colors.black87, size: 27),
+        icon: SvgPicture.asset(AppAssets.hamburger, width: 27),
       ),
-      title: RichText(
-        text: const TextSpan(
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
+      title: const FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              height: 1,
+            ),
+            children: [
+              TextSpan(
+                text: 'Campus',
+                style: TextStyle(color: Color(0xFF38358E)),
+              ),
+              TextSpan(
+                text: 'GO',
+                style: TextStyle(color: Color(0xFFFF0000)),
+              ),
+            ],
           ),
-          children: [
-            TextSpan(
-              text: 'Campus',
-              style: TextStyle(color: Color(0xFF342C86)),
-            ),
-            TextSpan(
-              text: 'GO',
-              style: TextStyle(color: Color(0xFFE31919)),
-            ),
-          ],
         ),
       ),
       actions: [
         IconButton(
           tooltip: 'Close',
+          splashRadius: 22,
           onPressed: () {
             Navigator.of(context).maybePop();
           },
-          icon: const Icon(Icons.close, color: Colors.black87, size: 27),
+          icon: SvgPicture.asset(AppAssets.closeButton, width: 23),
         ),
         const SizedBox(width: 4),
       ],
@@ -237,91 +315,139 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Widget _buildBanner() {
     return SizedBox(
-      height: 145,
+      // Extend the artwork beneath the floating panel so its rounded corners
+      // reveal the illustration instead of disappearing into white.
+      height: 228,
       width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset(
-            'assets/features/auth/login_background.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
-          Container(color: Colors.white.withValues(alpha: 0.10)),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(145, 20, 14, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'Find a Room',
-                  style: TextStyle(
-                    fontFamily: 'Raleway',
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: _blue,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'View real-time room schedules to check '
-                  'empty or occupied slots.',
-                  style: TextStyle(
-                    fontFamily: 'Roboto',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF202A31),
-                  ),
-                ),
-                const SizedBox(height: 9),
-                Wrap(
-                  spacing: 7,
-                  runSpacing: 4,
-                  children: [
-                    _bannerButton(
-                      text: 'CLASS SCHEDULE',
-                      active: true,
-                      onTap: () {},
-                    ),
-                    if (!widget.guestMode)
-                      _bannerButton(
-                        text: 'YOUR BOOKINGS',
-                        active: false,
-                        onTap: _openBookings,
-                      ),
-                  ],
-                ),
-              ],
+      child: ClipRect(
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned(
+              left: -40,
+              right: 0,
+              top: -18,
+              height: 630,
+              child: Image.asset(
+                AppAssets.loginBackground,
+                fit: BoxFit.cover,
+                // Adjust these alignment values to reposition UNIMY's logo.
+                alignment: const Alignment(-0.70, -0.42),
+              ),
             ),
-          ),
-        ],
+            ColoredBox(color: Colors.white.withValues(alpha: 0.10)),
+            Positioned(
+              left: 112,
+              right: 2,
+              top: 13,
+              bottom: 65,
+              child: IgnorePointer(
+                child: ImageFiltered(
+                  imageFilter: ui.ImageFilter.blur(
+                    sigmaX: 28.45,
+                    sigmaY: 28.45,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(57),
+                      gradient: const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Color(0xEBE8EFFF),
+                          Color(0xEBFFFFFF),
+                          Color(0xEBE8EFFF),
+                        ],
+                        stops: [0, 0.53, 1],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 132,
+              right: 12,
+              top: 10,
+              bottom: 67,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          fontFamily: 'Raleway',
+                          fontSize: 35,
+                          fontWeight: FontWeight.w700,
+                          height: 1.04,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Find a ',
+                            style: TextStyle(color: _blue),
+                          ),
+                          TextSpan(
+                            text: 'Room',
+                            style: TextStyle(color: _headingOrange),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'View real-time room schedules to check empty '
+                    'or occupied slots and reserve a room instantly.',
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'RobotoCondensed',
+                      fontFamilyFallback: ['Roboto'],
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      color: _bannerInk,
+                      height: 1.04,
+                    ),
+                  ),
+                  if (!widget.guestMode) ...[
+                    const SizedBox(height: 9),
+                    _bannerButton(text: 'YOUR BOOKINGS', onTap: _openBookings),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _bannerButton({
-    required String text,
-    required bool active,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: active ? _blue : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: _blue),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontFamily: 'Raleway',
-            fontSize: 8,
-            fontWeight: FontWeight.w700,
-            color: active ? Colors.white : _blue,
+  Widget _bannerButton({required String text, required VoidCallback onTap}) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: _bannerInk,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontFamily: 'Raleway',
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                height: 1,
+                letterSpacing: 0.1,
+              ),
+            ),
           ),
         ),
       ),
@@ -332,24 +458,52 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final results = _controller.searchResults;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
       child: Column(
         children: [
-          SizedBox(
-            height: 55,
+          Container(
+            height: 58,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(29),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x220C3450),
+                  blurRadius: 13,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
             child: TextField(
               controller: _searchController,
               onChanged: (value) {
                 _controller.setSearchQuery(value);
               },
-              style: const TextStyle(fontFamily: 'Raleway', fontSize: 16),
+              style: const TextStyle(
+                fontFamily: 'RobotoCondensed',
+                fontFamilyFallback: ['Roboto'],
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF5A5A5A),
+              ),
               decoration: InputDecoration(
                 hintText:
                     _controller.selectedRoomName ?? 'Search room or class',
-                prefixIcon: const Icon(
-                  Icons.location_on_outlined,
-                  color: Colors.red,
-                  size: 27,
+                hintStyle: const TextStyle(
+                  fontFamily: 'RobotoCondensed',
+                  fontFamilyFallback: ['Roboto'],
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF6A6A6A),
+                ),
+                prefixIcon: Padding(
+                  padding: const EdgeInsets.all(15),
+                  child: SvgPicture.asset(
+                    AppAssets.destinationPin,
+                    width: 24,
+                    height: 24,
+                  ),
                 ),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
@@ -358,7 +512,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           _searchController.clear();
                           _controller.setSearchQuery('');
                         },
-                        icon: const Icon(Icons.close),
+                        icon: SvgPicture.asset(
+                          AppAssets.closeButton,
+                          width: 16,
+                          height: 16,
+                        ),
                       ),
                 filled: true,
                 fillColor: Colors.white,
@@ -367,15 +525,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   vertical: 14,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(29),
                   borderSide: const BorderSide(color: _blue),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(29),
                   borderSide: const BorderSide(color: _blue),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(29),
                   borderSide: const BorderSide(color: _blue, width: 2),
                 ),
               ),
@@ -404,9 +562,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
                   return ListTile(
                     dense: true,
-                    leading: const Icon(
-                      Icons.meeting_room_outlined,
-                      color: _blue,
+                    leading: SizedBox(
+                      width: 40,
+                      height: 40,
+                      child: Image.asset(
+                        AppAssets.destinationClassroom,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                     title: Text(
                       entry.roomName ?? 'Room',
@@ -468,17 +630,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   Widget _buildDaySelector() {
     return Container(
-      height: 54,
-      margin: const EdgeInsets.fromLTRB(10, 4, 10, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+      height: 64,
+      margin: const EdgeInsets.fromLTRB(11, 3, 11, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(32),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -500,18 +662,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   Text(
                     _shortDay(day),
                     style: const TextStyle(
-                      fontFamily: 'Raleway',
-                      fontSize: 13,
+                      fontFamily: 'RobotoFlex',
+                      fontFamilyFallback: ['RobotoCondensed', 'Roboto'],
+                      fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      color: _blue,
+                      color: _dayBlue,
+                      height: 1,
                     ),
                   ),
                   const SizedBox(height: 5),
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
-                    width: selected ? 30 : 0,
-                    height: 2,
-                    decoration: const BoxDecoration(color: _blue),
+                    width: selected ? 37 : 0,
+                    height: 2.5,
+                    decoration: const BoxDecoration(color: _dayBlue),
                   ),
                 ],
               ),
@@ -549,26 +713,28 @@ class _TimetableScreenState extends State<TimetableScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Raleway',
-                fontSize: 18,
+                fontSize: 24,
                 fontWeight: FontWeight.w700,
-                color: _blue,
+                color: _headingBlue,
+                height: 1.1,
               ),
             ),
             const SizedBox(height: 9),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton(
+                OutlinedButton.icon(
                   onPressed: _navigateToRoom,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: _blue),
                     minimumSize: const Size(120, 30),
                   ),
-                  child: const Text(
-                    'Navigate Now  >',
+
+                  label: const Text(
+                    'Navigate Now',
                     style: TextStyle(
                       fontFamily: 'Raleway',
-                      fontSize: 10,
+                      fontSize: 15,
                       color: _blue,
                     ),
                   ),
@@ -583,7 +749,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     ),
                     child: const Text(
                       'Book Room',
-                      style: TextStyle(fontFamily: 'Raleway', fontSize: 10),
+                      style: TextStyle(fontFamily: 'Raleway', fontSize: 15),
                     ),
                   ),
                 ],
@@ -940,15 +1106,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _bookRoom() {
-  Navigator.of(context).pushNamed(
-    AppRoutes.bookings,
-    arguments: _controller.selectedRoomName,
-  );
-}
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.bookings, arguments: _controller.selectedRoomName);
+  }
 
-void _openBookings() {
-  Navigator.of(context).pushNamed(AppRoutes.bookings);
-}
+  void _openBookings() {
+    Navigator.of(context).pushNamed(AppRoutes.bookings);
+  }
 
   String _shortDay(String day) {
     switch (day) {

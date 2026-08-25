@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_assets.dart';
 import '../models/timetable_model.dart';
 
 class ScheduleEntryCard extends StatelessWidget {
@@ -22,7 +23,7 @@ class ScheduleEntryCard extends StatelessWidget {
 
   final bool isBusy;
 
-  static const Color _blue = Color(0xFF176F9E);
+  static const Color _blue = Color(0xFF2A77B4);
 
   static const Color _purple = Color(0xFF37258B);
 
@@ -35,17 +36,17 @@ class ScheduleEntryCard extends StatelessWidget {
     final lecturer = entry.lecturer?.trim() ?? '';
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 11, 8, 11),
+      padding: const EdgeInsets.fromLTRB(10, 11, 8, 10),
       decoration: BoxDecoration(
-        color: isOngoing ? _softBlue : Colors.white,
-        borderRadius: BorderRadius.circular(13),
+        color: isOngoing ? _softBlue : Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
         border: isOngoing ? Border.all(color: _blue, width: 1) : null,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _roomIllustration(),
-          const SizedBox(width: 11),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,10 +60,12 @@ class ScheduleEntryCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontFamily: 'Raleway',
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontFamily: 'RobotoCondensed',
+                          fontFamilyFallback: ['Roboto'],
+                          fontSize: 26,
+                          fontWeight: FontWeight.w500,
                           color: _blue,
+                          height: 1,
                         ),
                       ),
                     ),
@@ -75,9 +78,12 @@ class ScheduleEntryCard extends StatelessWidget {
                           ' - '
                           '${_formatTime(entry.endTime)}',
                           style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 12,
-                            color: Color(0xFF747A82),
+                            fontFamily: 'RobotoCondensed',
+                            fontFamilyFallback: ['Roboto'],
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF959BB1),
+                            height: 1.15,
                           ),
                         ),
                         if (isOngoing) ...[
@@ -114,9 +120,10 @@ class ScheduleEntryCard extends StatelessWidget {
                   ),
                   style: const TextStyle(
                     fontFamily: 'Raleway',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF3C434A),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF61727D),
+                    height: 1.1,
                   ),
                 ),
                 if (lecturer.isNotEmpty) ...[
@@ -135,8 +142,9 @@ class ScheduleEntryCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontFamily: 'Roboto',
-                            fontSize: 10,
+                            fontFamily: 'RobotoCondensed',
+                            fontFamilyFallback: ['Roboto'],
+                            fontSize: 11,
                             color: Color(0xFF959BA2),
                           ),
                         ),
@@ -144,38 +152,57 @@ class ScheduleEntryCard extends StatelessWidget {
                     ],
                   ),
                 ],
-                const SizedBox(height: 7),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: onNavigate,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          height: 26,
-                          decoration: BoxDecoration(
-                            gradient: isOngoing
-                                ? const LinearGradient(
-                                    colors: [_purple, _orange],
-                                  )
-                                : null,
-                            borderRadius: BorderRadius.circular(16),
-                            border: isOngoing ? null : Border.all(color: _blue),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            'Navigate Now  >',
-                            style: TextStyle(
-                              fontFamily: 'Raleway',
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: isOngoing ? Colors.white : _blue,
+                    Flexible(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 156),
+                        child: InkWell(
+                          onTap: onNavigate,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            height: 26,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              gradient: isOngoing
+                                  ? const LinearGradient(
+                                      colors: [_purple, _orange],
+                                    )
+                                  : null,
+                              borderRadius: BorderRadius.circular(16),
+                              border: isOngoing ? null : Border.all(color: _blue),
+                            ),
+                            alignment: Alignment.center,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Navigate Now',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'Raleway',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: isOngoing ? Colors.white : _blue,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.chevron_right,
+                                  size: 15,
+                                  color: isOngoing ? Colors.white : _blue,
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const Spacer(),
                     IconButton(
                       tooltip: 'Remove from My Schedule',
                       onPressed: isBusy
@@ -184,6 +211,11 @@ class ScheduleEntryCard extends StatelessWidget {
                               await onRemove();
                             },
                       visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 32,
+                        height: 32,
+                      ),
                       icon: isBusy
                           ? const SizedBox(
                               width: 18,
@@ -207,21 +239,10 @@ class ScheduleEntryCard extends StatelessWidget {
   }
 
   Widget _roomIllustration() {
-    // This safely imitates the room thumbnail from the provided UI.
-    // We are intentionally NOT hardcoding a room asset filename until
-    // we know the exact filenames in assets/shared/illustrations/rooms/.
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1E9D8),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Icon(
-        Icons.meeting_room_outlined,
-        color: Color(0xFFA77836),
-        size: 35,
-      ),
+    return SizedBox(
+      width: 70,
+      height: 70,
+      child: Image.asset(AppAssets.destinationClassroom, fit: BoxFit.contain),
     );
   }
 

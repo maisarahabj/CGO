@@ -10,6 +10,8 @@ import '../../../core/constants/app_assets.dart';
 import '../../../shared/widgets/campus_navigation_drawer.dart';
 import '../../navigation/controllers/navigation_controller.dart';
 import '../../navigation/models/destination_model.dart';
+import '../../navigation/models/edge_model.dart';
+import '../../navigation/models/navigation_graph_data.dart';
 import '../../navigation/models/node_model.dart';
 import '../../profile/models/profile_model.dart';
 import '../models/ongoing_class_model.dart';
@@ -86,6 +88,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _areRouteInstructionsExpanded = false;
   String? _dismissedTimetableId;
   bool _initialDestinationApplied = false;
+  bool _hasCheckedRouteClosureNotices = false;
+  List<_RouteClosureNotice> _routeClosureNotices = const [];
   Timer? _messageBannerTimer;
 
   bool get _isAccessibilityEnabled {
@@ -216,7 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _setAccessibility(bool value) {
+  Future<void> _setAccessibility(bool value) async {
     if (_navigationController.accessibleOnly == value) return;
 
     // Only reroute automatically when the user already had an active route.
@@ -230,14 +234,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!hadActiveRoute) return;
 
-    // Recalculate the same Current Location -> Destination immediately using
-    // the newly filtered routing graph. If accessible mode leaves no valid
-    // path, calculateRoute() keeps the old route cleared and exposes the
-    // appropriate "No accessible route" message instead of falling back.
-    final result = _navigationController.calculateRoute();
+    // Recalculate from a fresh Supabase snapshot so an administrator's latest
+    // route closure is also respected while accessibility mode changes.
+    final result = await _navigationController.refreshGraphAndCalculateRoute();
+
+    if (!mounted) return;
 
     if (result == null) {
-      _showMessage(
+      await _showRouteCalculationFailure(
         _navigationController.message ??
             'CampusGO could not recalculate the route.',
       );
@@ -462,6 +466,142 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     _applyInitialDestination();
+    unawaited(_showRouteClosureNotices());
+  }
+
+  /// Shows one announcement per Home session for guests and registered users.
+  ///
+  /// Notice rows are queried separately from the active graph, so reading
+  /// their description/reason cannot accidentally reopen a closed route.
+  Future<void> _showRouteClosureNotices() async {
+    if (_hasCheckedRouteClosureNotices) return;
+    _hasCheckedRouteClosureNotices = true;
+
+    try {
+      final closedEdges = await _navigationController.fetchClosedRouteNotices();
+      final graph = _navigationController.graph;
+
+      debugPrint(
+        'CampusGO public route closure notices: ${closedEdges.length}',
+      );
+
+      if (!mounted || graph == null || closedEdges.isEmpty) return;
+
+      final notices = closedEdges
+          .map((edge) => _RouteClosureNotice.fromEdge(edge: edge, graph: graph))
+          .toList(growable: false);
+
+      _routeClosureNotices = notices;
+
+      await showDialog<void>(
+        context: context,
+        barrierColor: const Color(0x99000000),
+        builder: (_) => _CampusGoRouteDialog(
+          title: 'Route Closure',
+          titleFontSize: 24,
+          description: 'CampusGO will automatically avoid these closed routes.',
+          notices: notices,
+        ),
+      );
+    } catch (error, stackTrace) {
+      // A temporary announcement failure must never block the map, login, or
+      // normal routing through the active-edge graph.
+      debugPrint('CampusGO route closure notice load failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  /// Validation errors describe the user's selections, while unavailable
+  /// routes describe the graph. They must remain separate even when the
+  /// campus currently has unrelated closed corridors.
+  Future<void> _showRouteCalculationFailure(String message) async {
+    final currentNodeId = _navigationController.currentLocationNodeId;
+    final destinationNodeId = _navigationController.destinationNodeId;
+    final normalizedMessage = message.toLowerCase();
+
+    if ((currentNodeId != null && currentNodeId == destinationNodeId) ||
+        normalizedMessage.contains('destination are the same')) {
+      await _showDifferentLocationsDialog();
+      return;
+    }
+
+    if (normalizedMessage.contains('no accessible route') ||
+        normalizedMessage.contains('no route was found')) {
+      await _showRouteUnavailableDialog(message);
+      return;
+    }
+
+    _showMessage(message);
+  }
+
+  Future<void> _showDifferentLocationsDialog() async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: const Color(0x99000000),
+      builder: (_) => const _CampusGoRouteDialog(
+        title: 'Choose Different Locations',
+        titleFontSize: 20,
+        description:
+            'Your current location and destination are the same. '
+            'Please choose two different locations.',
+        notices: <_RouteClosureNotice>[],
+      ),
+    );
+  }
+
+  /// Presents route-calculation failures in the same visual language as the
+  /// startup closure notice. If a closure notice is available, it is included
+  /// so the user sees the operational reason instead of only a generic error.
+  Future<void> _showRouteUnavailableDialog(String fallbackMessage) async {
+    var notices = _routeClosureNotices;
+
+    if (notices.isEmpty) {
+      try {
+        final closedEdges = await _navigationController
+            .fetchClosedRouteNotices();
+        final graph = _navigationController.graph;
+
+        if (graph != null) {
+          notices = closedEdges
+              .map(
+                (edge) =>
+                    _RouteClosureNotice.fromEdge(edge: edge, graph: graph),
+              )
+              .toList(growable: false);
+          _routeClosureNotices = notices;
+        }
+      } catch (error, stackTrace) {
+        debugPrint('CampusGO unavailable-route notice load failed: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+    }
+
+    if (!mounted) return;
+
+    final isAccessibleFailure = fallbackMessage.toLowerCase().contains(
+      'no accessible route',
+    );
+    final description = notices.isEmpty
+        ? fallbackMessage
+        : isAccessibleFailure
+        ? 'An accessible route is temporarily unavailable because of a route '
+              'closure. If you can use stairs, turn off accessible routing '
+              'and try again.'
+        : 'A route is temporarily unavailable because of the closure below. '
+              'Please choose another route or try again later.';
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: const Color(0x99000000),
+      builder: (_) => _CampusGoRouteDialog(
+        title: 'Route Temporarily Unavailable',
+        titleFontSize: 18,
+        description: description,
+        notices: notices,
+      ),
+    );
   }
 
   void _applyInitialDestination() {
@@ -556,13 +696,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _startNavigation() {
+  Future<void> _startNavigation() async {
     _currentLocationFocusNode.unfocus();
     _destinationFocusNode.unfocus();
 
-    final result = _navigationController.calculateRoute();
+    final currentNodeId = _navigationController.currentLocationNodeId;
+    final destinationNodeId = _navigationController.destinationNodeId;
+
+    // Identical selections are an input-validation issue, not a closed route.
+    // Catch them before refreshing Supabase or loading unrelated closures.
+    if (currentNodeId != null && currentNodeId == destinationNodeId) {
+      await _showDifferentLocationsDialog();
+      return;
+    }
+
+    // The graph used for destination search is cached, but route availability
+    // is operational data. Reload active edges before every explicit Navigate
+    // action so an admin closure affects the next Dijkstra calculation.
+    final result = await _navigationController.refreshGraphAndCalculateRoute();
+
+    if (!mounted) return;
+
     if (result == null) {
-      _showMessage(
+      await _showRouteCalculationFailure(
         _navigationController.message ??
             'CampusGO could not calculate a route.',
       );
@@ -588,6 +744,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void _endNavigation() {
     _navigationController.clearRoute();
     _collapseNavigationPanel();
+  }
+
+  void _startNewRouteSearch() {
+    if (!_ensureNavigationReady()) return;
+
+    _navigationController.clearRoute();
+    _destinationController.clear();
+    _navigationController.destinationTextChanged('');
+
+    if (_isRegisteredUser && !_isNavigationPanelExpanded) {
+      setState(() {
+        _isNavigationPanelExpanded = true;
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _destinationFocusNode.requestFocus();
+    });
   }
 
   bool _ensureNavigationReady() {
@@ -661,7 +835,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await widget.onScheduleRefresh?.call();
   }
 
-  void _navigateToClass(OngoingClassModel scheduledClass) {
+  Future<void> _navigateToClass(OngoingClassModel scheduledClass) async {
     if (!_ensureNavigationReady()) return;
 
     final roomNodeId = scheduledClass.roomNodeId.trim();
@@ -690,7 +864,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // If the user already has a current location, "Navigate Now" can start
     // the route immediately using the existing Dijkstra pipeline.
     if (_navigationController.currentLocation != null) {
-      _startNavigation();
+      await _startNavigation();
       return;
     }
 
@@ -758,9 +932,9 @@ class _HomeScreenState extends State<HomeScreen> {
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        // The SafeArea keeps instruction text below the clock and Dynamic
-        // Island, while this background extends the white panel behind them.
-        backgroundColor: hasActiveRoute
+        // Keep the system status area visually attached to either white
+        // header without moving its content underneath the Dynamic Island.
+        backgroundColor: hasActiveRoute || _showOngoingClassReminder
             ? Colors.white
             : const Color(0xFFE8E8E8),
         drawerScrimColor: const Color(0x3D000000),
@@ -846,16 +1020,21 @@ class _HomeScreenState extends State<HomeScreen> {
               final instructionCount =
                   _navigationController.instructions.length;
               final maximumInstructionRows = _areRouteInstructionsExpanded
-                  ? 6
-                  : 2;
+                  ? HomeRouteInstructionsPanel.expandedVisibleInstructionRows
+                  : HomeRouteInstructionsPanel.collapsedVisibleInstructionRows;
               final visibleInstructionRows = math.min(
                 instructionCount,
                 maximumInstructionRows,
               );
               final routeInstructionPanelHeight =
                   hasActiveRoute && instructionCount > 0
-                  ? (visibleInstructionRows * 58.0) +
-                        (_areRouteInstructionsExpanded ? 85.0 : 40.0)
+                  ? (visibleInstructionRows *
+                            HomeRouteInstructionsPanel.instructionRowHeight) +
+                        (_areRouteInstructionsExpanded
+                            ? HomeRouteInstructionsPanel
+                                  .expandedPanelChromeHeight
+                            : HomeRouteInstructionsPanel
+                                  .collapsedPanelChromeHeight)
                   : 0.0;
 
               return Stack(
@@ -938,6 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         instructions: _navigationController.instructions,
                         onStopPressed: _endNavigation,
+                        onNewSearchPressed: _startNewRouteSearch,
                         onExpandedChanged: _handleInstructionExpansionChanged,
                         onSchedulePressed: _isRegisteredUser
                             ? () {
@@ -1042,6 +1222,316 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RouteClosureNotice {
+  const _RouteClosureNotice({required this.floor, required this.message});
+
+  final String floor;
+  final String message;
+
+  factory _RouteClosureNotice.fromEdge({
+    required EdgeModel edge,
+    required NavigationGraphData graph,
+  }) {
+    final source = graph.nodeById[edge.sourceNodeId];
+    final target = graph.nodeById[edge.targetNodeId];
+
+    final sourceFloor = _floorName(
+      node: source,
+      nodeId: edge.sourceNodeId,
+      graph: graph,
+    );
+    final targetFloor = _floorName(
+      node: target,
+      nodeId: edge.targetNodeId,
+      graph: graph,
+    );
+
+    final floorNames = <String>{
+      if (sourceFloor != null) sourceFloor,
+      if (targetFloor != null) targetFloor,
+    }.toList(growable: false);
+
+    final floor = switch (floorNames.length) {
+      0 => 'the campus',
+      1 => floorNames.single,
+      _ => '${floorNames.first} and ${floorNames.last}',
+    };
+
+    final sourceName = _specificNodeName(source);
+    final targetName = _specificNodeName(target);
+
+    final endpointNames = <String>{
+      if (sourceName != null) sourceName,
+      if (targetName != null) targetName,
+    }.toList(growable: false);
+
+    final location =
+        _specificDescription(edge.description) ??
+        switch (endpointNames.length) {
+          0 => null,
+          1 => endpointNames.single,
+          _ => '${endpointNames.first} and ${endpointNames.last}',
+        };
+
+    final segmentType = switch (edge.edgeType?.trim().toLowerCase()) {
+      'stairs' || 'staircase' => 'staircase',
+      'elevator' || 'lift' => 'lift',
+      _ => 'hallway',
+    };
+
+    final reason = (edge.closureReason?.trim() ?? 'maintenance work')
+        .replaceAll(RegExp(r'[.!?]+$'), '');
+
+    final sentence = location == null
+        ? 'The $segmentType on $floor is closed due to $reason.'
+        : 'The $segmentType near $location on $floor is closed due to '
+              '$reason.';
+
+    return _RouteClosureNotice(floor: floor, message: sentence);
+  }
+
+  static String? _floorName({
+    required NodeModel? node,
+    required String? nodeId,
+    required NavigationGraphData graph,
+  }) {
+    final storedFloor = node?.floorId?.trim();
+    if (storedFloor != null && storedFloor.isNotEmpty) {
+      final floor = graph.floorById[storedFloor];
+      if (floor != null) return floor.displayName;
+    }
+
+    final identifier = (node?.nodeId ?? nodeId)?.trim().toUpperCase();
+    if (identifier == null || identifier.isEmpty) return null;
+
+    final floorCode = identifier.split('_').first;
+    if (floorCode == 'G') return 'Ground Floor';
+
+    final match = RegExp(r'^L([0-9]+)$').firstMatch(floorCode);
+    return match == null ? storedFloor : 'Level ${match.group(1)}';
+  }
+
+  static String? _specificNodeName(NodeModel? node) {
+    if (node == null) return null;
+
+    final label = node.label?.trim();
+    if (label != null && label.isNotEmpty) return node.displayName;
+
+    return _specificDescription(node.description);
+  }
+
+  static String? _specificDescription(String? value) {
+    final normalized = value?.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (normalized == null || normalized.isEmpty) return null;
+
+    const genericDescriptions = <String>{
+      'corridor',
+      'elevator',
+      'hallway',
+      'lift',
+      'route',
+      'staircase',
+      'stairs',
+      'walkway',
+    };
+
+    return genericDescriptions.contains(normalized.toLowerCase())
+        ? null
+        : '${normalized[0].toUpperCase()}${normalized.substring(1)}';
+  }
+}
+
+class _CampusGoRouteDialog extends StatelessWidget {
+  const _CampusGoRouteDialog({
+    required this.title,
+    required this.titleFontSize,
+    required this.description,
+    required this.notices,
+  });
+
+  final String title;
+  final double titleFontSize;
+  final String description;
+  final List<_RouteClosureNotice> notices;
+
+  @override
+  Widget build(BuildContext context) {
+    final maximumHeight = MediaQuery.sizeOf(context).height * 0.76;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 340, maxHeight: maximumHeight),
+        child: Material(
+          color: Colors.white,
+          elevation: 8,
+          shadowColor: const Color(0x66000000),
+          clipBehavior: Clip.antiAlias,
+          borderRadius: BorderRadius.circular(22),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _CampusGoDialogBrand(),
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Raleway',
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF115388),
+                    height: 1.12,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFF115388),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontFamily: 'RobotoCondensed',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF5A5A5A),
+                    height: 1.28,
+                  ),
+                ),
+                if (notices.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  for (var index = 0; index < notices.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 10),
+                    _RouteClosureNoticeCard(notice: notices[index]),
+                  ],
+                ],
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: SizedBox(
+                    width: 135,
+                    height: 30,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF115388),
+                        padding: EdgeInsets.zero,
+                        side: const BorderSide(
+                          color: Color(0xFF115388),
+                          width: 1,
+                        ),
+                        shape: const StadiumBorder(),
+                        textStyle: const TextStyle(
+                          fontFamily: 'Raleway',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: const Text('Got it'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CampusGoDialogBrand extends StatelessWidget {
+  const _CampusGoDialogBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Image.asset(
+          AppAssets.campusGoLocationPin,
+          width: 28,
+          height: 32,
+          fit: BoxFit.contain,
+        ),
+        const SizedBox(width: 3),
+        Text.rich(
+          const TextSpan(
+            children: [
+              TextSpan(
+                text: 'Campus',
+                style: TextStyle(color: Color(0xFF28258E)),
+              ),
+              TextSpan(
+                text: 'GO',
+                style: TextStyle(color: Color(0xFFFF0000)),
+              ),
+            ],
+          ),
+          style: const TextStyle(
+            fontFamily: 'Raleway',
+            fontSize: 35,
+            fontWeight: FontWeight.w800,
+            height: 1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RouteClosureNoticeCard extends StatelessWidget {
+  const _RouteClosureNoticeCard({required this.notice});
+
+  final _RouteClosureNotice notice;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F9FC),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFD9E5ED)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            notice.floor,
+            style: const TextStyle(
+              fontFamily: 'Raleway',
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF115388),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            notice.message,
+            style: const TextStyle(
+              fontFamily: 'RobotoCondensed',
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF5A5A5A),
+              height: 1.28,
+            ),
+          ),
+        ],
       ),
     );
   }

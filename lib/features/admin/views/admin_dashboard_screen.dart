@@ -6,6 +6,7 @@ import '../../../app/app_routes.dart';
 import '../../../core/constants/app_assets.dart';
 import '../../auth/controllers/auth_controller.dart';
 import '../../profile/models/profile_model.dart';
+import '../widgets/admin_current_map.dart';
 import '../widgets/admin_navigation_drawer.dart';
 import '../widgets/admin_stat_card.dart';
 
@@ -19,7 +20,7 @@ class AdminDashboardScreen extends StatelessWidget {
 
   final AuthController authController;
 
-  /// Replace this with the real Spline map widget when it is ready.
+  /// Optional test or platform-specific replacement for the dashboard map.
   final Widget? mapContent;
 
   void _openFromDrawer(BuildContext context, String routeName) {
@@ -477,7 +478,7 @@ class _CurrentMapSection extends StatelessWidget {
           key: const Key('admin-spline-map-slot'),
           height: 260,
           width: double.infinity,
-          child: mapContent ?? const SizedBox.expand(),
+          child: mapContent ?? const AdminCurrentMap(),
         ),
       ],
     );

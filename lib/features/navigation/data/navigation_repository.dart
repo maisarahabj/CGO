@@ -20,6 +20,9 @@ class NavigationRepository {
 
   final SupabaseClient _client;
 
+  static const String qrImageBucket = 'qr-checkpoints';
+  static const int _maximumQrImageBytes = 5 * 1024 * 1024;
+
   static const String _floorColumns =
       'floor_id, level_number, floor_name, spline_url, is_accessible';
 
@@ -29,10 +32,10 @@ class NavigationRepository {
 
   static const String _edgeColumns =
       'edge_id, source_node_id, target_node_id, traversal_cost, edge_type, '
-      'description, distance_weight, is_accessible, is_active';
+      'description, distance_weight, is_accessible, is_active, closure_reason';
 
   static const String _qrColumns =
-      'qr_id, node_id, qr_value, location_description, status';
+      'qr_id, node_id, qr_value, location_description, status, qr_image_path';
 
   /// Loads the floors that exist in the CampusGO map.
   Future<List<FloorModel>> fetchFloors() async {
@@ -100,6 +103,161 @@ class NavigationRepository {
     }
   }
 
+  /// Loads public route-closure announcements without adding those edges to
+  /// the graph used for navigation.
+  ///
+  /// A dedicated Supabase SELECT policy exposes only inactive edges that have
+  /// a nonblank closure reason. [fetchActiveEdges] continues to request
+  /// `is_active = true`, so guests and registered users can read an alert
+  /// without ever being routed through its closed segment.
+  Future<List<EdgeModel>> fetchClosedRouteNotices() async {
+    try {
+      final rows = await _client
+          .from(DatabaseTables.edges)
+          .select(_edgeColumns)
+          .eq('is_active', false)
+          .order('edge_id');
+
+      return rows
+          .map((row) => EdgeModel.fromJson(Map<String, dynamic>.from(row)))
+          .where((edge) => edge.closureReason?.trim().isNotEmpty == true)
+          .toList(growable: false);
+    } catch (error) {
+      throw AppException('Unable to load closed route notices.', cause: error);
+    }
+  }
+
+  /// Loads every navigation edge for the administrator, including closed
+  /// edges. User and guest routing must continue using [fetchActiveEdges].
+  Future<List<EdgeModel>> fetchManageableEdges() async {
+    try {
+      final rows = await _client
+          .from(DatabaseTables.edges)
+          .select(_edgeColumns)
+          .order('edge_id');
+
+      return rows
+          .map((row) => EdgeModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+    } catch (error) {
+      throw AppException('Unable to load route segments.', cause: error);
+    }
+  }
+
+  /// Opens or closes one existing edge without changing its accessibility.
+  ///
+  /// `is_active` answers whether the segment is currently usable.
+  /// `is_accessible` remains an independent property and is deliberately not
+  /// included in this update payload.
+  Future<EdgeModel> updateEdgeActiveState({
+    required String edgeId,
+    required bool isActive,
+    String? closureReason,
+  }) async {
+    final normalizedEdgeId = edgeId.trim();
+
+    if (normalizedEdgeId.isEmpty) {
+      throw const AppException('Select a route segment to manage.');
+    }
+
+    final normalizedReason = closureReason?.trim();
+
+    if (!isActive && (normalizedReason == null || normalizedReason.isEmpty)) {
+      throw const AppException('Select a reason before closing this route.');
+    }
+
+    if (_client.auth.currentUser == null) {
+      throw const AppException(
+        'Sign in with an administrator account before managing routes.',
+      );
+    }
+
+    debugPrint(
+      'CampusGO admin edge update requested: '
+      'edge=$normalizedEdgeId, '
+      'is_active=$isActive, '
+      'closure_reason=${isActive ? 'null' : normalizedReason}',
+    );
+
+    try {
+      final row = await _client
+          .from(DatabaseTables.edges)
+          .update(<String, dynamic>{
+            'is_active': isActive,
+            'closure_reason': isActive ? null : normalizedReason,
+          })
+          .eq('edge_id', normalizedEdgeId)
+          .select(_edgeColumns)
+          .maybeSingle();
+
+      if (row == null) {
+        throw const AppException(
+          'Supabase did not return the updated route. Check that this account '
+          'is an admin and that public.edges allows admins to UPDATE routes '
+          'and SELECT closed routes.',
+        );
+      }
+
+      final updated = EdgeModel.fromJson(Map<String, dynamic>.from(row));
+
+      debugPrint(
+        'CampusGO admin edge update saved: '
+        'edge=${updated.edgeId}, '
+        'is_active=${updated.isActive}, '
+        'closure_reason=${updated.closureReason}',
+      );
+
+      return updated;
+    } on AppException {
+      rethrow;
+    } on PostgrestException catch (error) {
+      final operation = isActive ? 'reopen' : 'close';
+      final databaseMessage = error.message.trim();
+      final normalizedMessage = databaseMessage.toLowerCase();
+
+      debugPrint(
+        'CampusGO admin edge update failed: '
+        'edge=$normalizedEdgeId, '
+        'code=${error.code}, '
+        'message=$databaseMessage, '
+        'details=${error.details}, '
+        'hint=${error.hint}',
+      );
+
+      if (error.code == '42501' ||
+          normalizedMessage.contains('row-level security') ||
+          normalizedMessage.contains('permission denied')) {
+        throw AppException(
+          'Supabase denied permission to $operation this route. Check the '
+          'admin UPDATE and SELECT policies on public.edges and confirm that '
+          'your profile role is admin.',
+          cause: error,
+        );
+      }
+
+      if (normalizedMessage.contains('closure_reason')) {
+        throw AppException(
+          'Supabase could not update closure_reason: $databaseMessage',
+          cause: error,
+        );
+      }
+
+      throw AppException(
+        'Unable to $operation this route segment: $databaseMessage',
+        cause: error,
+      );
+    } catch (error) {
+      debugPrint(
+        'CampusGO admin edge update failed unexpectedly: '
+        'edge=$normalizedEdgeId, error=$error',
+      );
+      throw AppException(
+        'Unable to ${isActive ? 'reopen' : 'close'} this route segment.',
+        cause: error,
+      );
+    }
+  }
+
   /// Loads one internally consistent graph snapshot for Dijkstra.
   ///
   /// Accessibility filtering is controlled entirely by the
@@ -145,6 +303,258 @@ class NavigationRepository {
           .where((edge) => edge.isAccessible)
           .toList(growable: false),
     );
+  }
+
+  /// Loads all existing checkpoints, including inactive ones, for admins.
+  ///
+  /// Scanner lookups remain separate because an administrator must be able to
+  /// see and reactivate records that a normal user cannot currently scan.
+  Future<List<QrCodeModel>> fetchQrCheckpoints() async {
+    try {
+      final rows = await _client
+          .from(DatabaseTables.qrCodes)
+          .select(_qrColumns)
+          .order('qr_id');
+
+      return rows
+          .map((row) => QrCodeModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+    } catch (error) {
+      throw AppException(
+        _checkpointErrorMessage('Unable to load QR checkpoints', error),
+        cause: error,
+      );
+    }
+  }
+
+  /// Updates the physical location represented by one existing checkpoint.
+  ///
+  /// qr_value is intentionally never changed here. The printed QR can contain
+  /// a value such as CAMPUSGO_L8_LIFT while qr_id is displayed as QR005. Its
+  /// physical code must continue scanning after the assigned node is changed.
+  Future<QrCodeModel> updateQrCheckpoint({
+    required String qrId,
+    required String nodeId,
+    required String locationDescription,
+    required bool isActive,
+    String? existingImagePath,
+    Uint8List? imageBytes,
+    String? imageExtension,
+  }) async {
+    final normalizedQrId = qrId.trim();
+    final normalizedNodeId = nodeId.trim();
+    final normalizedDescription = locationDescription.trim();
+
+    if (normalizedQrId.isEmpty) {
+      throw const AppException('A checkpoint ID is required.');
+    }
+
+    if (normalizedNodeId.isEmpty) {
+      throw const AppException('Select a navigation node for this checkpoint.');
+    }
+
+    if (normalizedDescription.isEmpty) {
+      throw const AppException('Enter a checkpoint location name.');
+    }
+
+    String? uploadedImagePath;
+
+    try {
+      if (imageBytes != null) {
+        uploadedImagePath = await uploadQrCheckpointImage(
+          qrId: normalizedQrId,
+          imageBytes: imageBytes,
+          extension: imageExtension,
+        );
+      }
+
+      final row = await _client
+          .from(DatabaseTables.qrCodes)
+          .update(<String, dynamic>{
+            'node_id': normalizedNodeId,
+            'location_description': normalizedDescription,
+            'status': isActive ? 'active' : 'inactive',
+            if (uploadedImagePath != null) 'qr_image_path': uploadedImagePath,
+          })
+          .eq('qr_id', normalizedQrId)
+          .select(_qrColumns)
+          .single();
+
+      final updated = QrCodeModel.fromJson(Map<String, dynamic>.from(row));
+      final previousImagePath = existingImagePath?.trim();
+
+      if (uploadedImagePath != null &&
+          previousImagePath != null &&
+          previousImagePath.isNotEmpty &&
+          previousImagePath != uploadedImagePath) {
+        await _tryDeleteQrCheckpointImage(previousImagePath);
+      }
+
+      return updated;
+    } catch (error) {
+      if (uploadedImagePath != null) {
+        await _tryDeleteQrCheckpointImage(uploadedImagePath);
+      }
+
+      throw AppException(
+        _checkpointErrorMessage(
+          'Unable to update checkpoint $normalizedQrId',
+          error,
+        ),
+        cause: error,
+      );
+    }
+  }
+
+  /// Creates a checkpoint and optionally links its uploaded QR image.
+  ///
+  /// Existing records keep their current qr_value. New checkpoints may use
+  /// their generated QR ID as the scan value because findQrByValue already
+  /// supports any exact, non-empty value stored in qr_codes.qr_value.
+  Future<QrCodeModel> createQrCheckpoint({
+    required String qrId,
+    required String qrValue,
+    required String nodeId,
+    required String locationDescription,
+    required bool isActive,
+    Uint8List? imageBytes,
+    String? imageExtension,
+  }) async {
+    final normalizedQrId = qrId.trim();
+    final normalizedQrValue = qrValue.trim();
+    final normalizedNodeId = nodeId.trim();
+    final normalizedDescription = locationDescription.trim();
+
+    if (normalizedQrId.isEmpty || normalizedQrValue.isEmpty) {
+      throw const AppException('A checkpoint ID and QR value are required.');
+    }
+
+    if (normalizedNodeId.isEmpty) {
+      throw const AppException('Select a navigation node for this checkpoint.');
+    }
+
+    if (normalizedDescription.isEmpty) {
+      throw const AppException('Enter a checkpoint location name.');
+    }
+
+    String? uploadedImagePath;
+
+    try {
+      if (imageBytes != null) {
+        uploadedImagePath = await uploadQrCheckpointImage(
+          qrId: normalizedQrId,
+          imageBytes: imageBytes,
+          extension: imageExtension,
+        );
+      }
+
+      final row = await _client
+          .from(DatabaseTables.qrCodes)
+          .insert(<String, dynamic>{
+            'qr_id': normalizedQrId,
+            'node_id': normalizedNodeId,
+            'qr_value': normalizedQrValue,
+            'location_description': normalizedDescription,
+            'status': isActive ? 'active' : 'inactive',
+            if (uploadedImagePath != null) 'qr_image_path': uploadedImagePath,
+          })
+          .select(_qrColumns)
+          .single();
+
+      return QrCodeModel.fromJson(Map<String, dynamic>.from(row));
+    } catch (error) {
+      if (uploadedImagePath != null) {
+        await _tryDeleteQrCheckpointImage(uploadedImagePath);
+      }
+
+      throw AppException(
+        _checkpointErrorMessage(
+          'Unable to create checkpoint $normalizedQrId',
+          error,
+        ),
+        cause: error,
+      );
+    }
+  }
+
+  /// Uploads an administrator-provided QR image and returns its bucket path.
+  ///
+  /// The path, rather than a permanent URL, is stored in qr_codes so the
+  /// database remains independent of the project's Supabase domain.
+  Future<String> uploadQrCheckpointImage({
+    required String qrId,
+    required Uint8List imageBytes,
+    required String? extension,
+  }) async {
+    final normalizedQrId = qrId.trim().toUpperCase();
+    final normalizedExtension = extension?.trim().toLowerCase();
+
+    if (normalizedQrId.isEmpty) {
+      throw const AppException('A checkpoint ID is required for image upload.');
+    }
+
+    if (imageBytes.isEmpty) {
+      throw const AppException('The selected QR image is empty.');
+    }
+
+    if (imageBytes.lengthInBytes > _maximumQrImageBytes) {
+      throw const AppException('Choose a QR image smaller than 5 MB.');
+    }
+
+    if (normalizedExtension == null ||
+        !const <String>{'png', 'jpg', 'jpeg', 'webp'}
+            .contains(normalizedExtension)) {
+      throw const AppException('Choose a PNG, JPG, JPEG, or WEBP QR image.');
+    }
+
+    final timestamp = DateTime.now().microsecondsSinceEpoch;
+    final imagePath = '$normalizedQrId/$timestamp.$normalizedExtension';
+    final contentType = normalizedExtension == 'jpg' ||
+            normalizedExtension == 'jpeg'
+        ? 'image/jpeg'
+        : 'image/$normalizedExtension';
+
+    await _client.storage.from(qrImageBucket).uploadBinary(
+          imagePath,
+          imageBytes,
+          fileOptions: FileOptions(contentType: contentType, upsert: false),
+        );
+
+    return imagePath;
+  }
+
+  /// Resolves an uploaded QR image in the public qr-checkpoints bucket.
+  String? qrCheckpointImageUrl(String? imagePath) {
+    final normalizedPath = imagePath?.trim();
+
+    if (normalizedPath == null || normalizedPath.isEmpty) return null;
+
+    return _client.storage.from(qrImageBucket).getPublicUrl(normalizedPath);
+  }
+
+  /// Best-effort cleanup never makes an otherwise successful save fail.
+  Future<void> _tryDeleteQrCheckpointImage(String imagePath) async {
+    try {
+      await _client.storage.from(qrImageBucket).remove(<String>[imagePath]);
+    } catch (error) {
+      debugPrint('Unable to remove unused checkpoint image $imagePath: $error');
+    }
+  }
+
+  String _checkpointErrorMessage(String action, Object error) {
+    if (error is AppException && error.message.trim().isNotEmpty) {
+      return '$action: ${error.message}';
+    }
+
+    if (error is PostgrestException && error.message.trim().isNotEmpty) {
+      return '$action: ${error.message}';
+    }
+
+    if (error is StorageException && error.message.trim().isNotEmpty) {
+      return '$action: ${error.message}';
+    }
+
+    return '$action. Please try again.';
   }
 
   /// Finds one CampusGO QR checkpoint by the exact value stored inside the QR.

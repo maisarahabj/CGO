@@ -9,11 +9,6 @@ import '../data/navigation_repository.dart';
 import '../models/node_model.dart';
 
 /// Scans a CampusGO QR checkpoint and returns the linked active [NodeModel].
-///
-/// Real camera scans and the debug simulator controls both call
-/// [_processScanValue]. This means the development button only replaces the
-/// physical act of pointing a camera at a QR code; Supabase lookup, status
-/// validation, node resolution, and the value returned to HomeScreen are real.
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
 
@@ -22,15 +17,6 @@ class QrScannerScreen extends StatefulWidget {
 }
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
-  static const List<String> _debugQrValues = [
-    'CAMPUSGO_G_LIFT',
-    'CAMPUSGO_L1_LIFT',
-    'CAMPUSGO_L3_LIFT',
-    'CAMPUSGO_L6_LIFT',
-    'CAMPUSGO_L8_LIFT',
-    'CAMPUSGO_L9_LIFT',
-  ];
-
   final NavigationRepository _repository = NavigationRepository();
 
   late final MobileScannerController _scannerController =
@@ -44,7 +30,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   bool _isProcessing = false;
   String _statusMessage = 'Point the camera at a CampusGO QR checkpoint.';
   bool _statusIsError = false;
-  String _debugQrValue = 'CAMPUSGO_L6_LIFT';
 
   String? _lastScanValue;
   DateTime? _lastScanTime;
@@ -65,7 +50,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     }
   }
 
-  /// Shared CampusGO QR pipeline used by both real and simulated scans.
+  /// Resolves a real camera scan through the CampusGO QR pipeline.
   Future<void> _processScanValue(String rawValue) async {
     final normalizedValue = rawValue.trim();
 
@@ -176,8 +161,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     try {
       await _scannerController.stop();
     } catch (_) {
-      // A simulator may not have an available camera. The debug scan path must
-      // still be able to test the real Supabase and navigation logic.
+      // The controller may already be stopped while the screen is closing.
     }
   }
 
@@ -185,8 +169,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     try {
       await _scannerController.start();
     } catch (_) {
-      // Keep the screen usable in debug mode even when the simulator camera is
-      // unavailable. On a physical phone the camera should start normally.
+      // The error builder gives the user camera-permission guidance.
     }
   }
 
@@ -214,13 +197,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            kDebugMode
-                ? 'This is expected on some simulators. Use the Development '
-                      'Test below to simulate a real QR value.'
-                : 'Check camera permission and try again.',
+          const Text(
+            'Check camera permission and try again.',
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white70,
               fontSize: 14,
               height: 1.35,
@@ -273,89 +253,18 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
               color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    _statusMessage,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Roboto',
-                      fontSize: 14,
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                      color: _statusIsError
-                          ? const Color(0xFFB42318)
-                          : const Color(0xFF26333C),
-                    ),
-                  ),
-                  if (kDebugMode) ...[
-                    const SizedBox(height: 18),
-                    const Divider(height: 1),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Development Test',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF26333C),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Simulator only: this bypasses the camera, not the QR '
-                      'logic. The selected value still goes through Supabase '
-                      'and returns a real navigation node.',
-                      style: TextStyle(
-                        fontFamily: 'Roboto',
-                        fontSize: 12,
-                        height: 1.35,
-                        color: Color(0xFF7E8791),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButton<String>(
-                            isExpanded: true,
-                            value: _debugQrValue,
-                            items: _debugQrValues
-                                .map(
-                                  (value) => DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(
-                                      value,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: _isProcessing
-                                ? null
-                                : (value) {
-                                    if (value == null) return;
-                                    setState(() {
-                                      _debugQrValue = value;
-                                    });
-                                  },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
-                          onPressed: _isProcessing
-                              ? null
-                              : () {
-                                  unawaited(_processScanValue(_debugQrValue));
-                                },
-                          icon: const Icon(Icons.play_arrow),
-                          label: const Text('Simulate scan'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
+              child: Text(
+                _statusMessage,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Roboto',
+                  fontSize: 14,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                  color: _statusIsError
+                      ? const Color(0xFFB42318)
+                      : const Color(0xFF26333C),
+                ),
               ),
             ),
           ],

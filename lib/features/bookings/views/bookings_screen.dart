@@ -40,10 +40,12 @@ class _BookingsScreenBody extends StatefulWidget {
 class _BookingsScreenState extends State<_BookingsScreenBody> {
   bool _bookingsExpanded = true;
   bool _historyExpanded = true;
+  bool _instructionsExpanded = false;
 
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<BookingController>().loadBookings();
@@ -75,7 +77,9 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
             child: const Text('Yes, Cancel'),
           ),
         ],
@@ -84,173 +88,19 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
 
     if (confirmed == true && context.mounted) {
       final success = await controller.cancelBooking(bookingId);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              success ? 'Booking cancelled.' : (controller.error ?? 'Could not cancel booking.'),
+              success
+                  ? 'Booking cancelled.'
+                  : (controller.error ?? 'Could not cancel booking.'),
             ),
           ),
         );
       }
     }
-  }
-
-  // --------------------------------------------------------------------------
-  // HOW TO BOOK DIALOG
-  // --------------------------------------------------------------------------
-
-  void _showBookingInstructions(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 500),
-            padding: const EdgeInsets.all(22),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: const Color(0xFF2A77B4), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.18),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        height: 44,
-                        width: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF1F6FF),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: const Color(0xFF2A77B4)),
-                        ),
-                        child: const Icon(Icons.help_outline, color: Color(0xFF2A77B4)),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'How do I book a room?',
-                          style: TextStyle(
-                            fontFamily: 'Raleway',
-                            fontWeight: FontWeight.w800,
-                            fontSize: 21,
-                            color: Color(0xFF115388),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(dialogContext),
-                        icon: const Icon(Icons.close, color: Color(0xFF777777)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Follow these steps to submit a room booking request:',
-                    style: TextStyle(fontFamily: 'Roboto Flex', fontSize: 15, color: Color(0xFF555555)),
-                  ),
-                  const SizedBox(height: 18),
-                  const _InstructionStep(
-                    number: '1',
-                    icon: Icons.calendar_today_outlined,
-                    title: 'Choose a date',
-                    description: 'Select the date on which you need the room.',
-                  ),
-                  const SizedBox(height: 14),
-                  const _InstructionStep(
-                    number: '2',
-                    icon: Icons.schedule,
-                    title: 'Choose a time',
-                    description: 'Select the start and end time for your booking.',
-                  ),
-                  const SizedBox(height: 14),
-                  const _InstructionStep(
-                    number: '3',
-                    icon: Icons.menu_book_outlined,
-                    title: 'Select an available room',
-                    description:
-                        'Choose a room from the dropdown. Only rooms free '
-                        'for the selected date and time will be shown.',
-                  ),
-                  const SizedBox(height: 14),
-                  const _InstructionStep(
-                    number: '4',
-                    icon: Icons.meeting_room_outlined,
-                    title: 'Check the room',
-                    description: 'Review the room details before you submit the request.',
-                  ),
-                  const SizedBox(height: 14),
-                  const _InstructionStep(
-                    number: '5',
-                    icon: Icons.send_outlined,
-                    title: 'Submit your request',
-                    description:
-                        'Add any additional information if needed, then '
-                        'submit your booking request for admin approval.',
-                  ),
-                  const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F7FF),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFF2A77B4)),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline, size: 20, color: Color(0xFF2A77B4)),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Your request is not automatically approved. '
-                            'An administrator must review and approve the '
-                            'booking before the room is confirmed.',
-                            style: TextStyle(
-                              fontFamily: 'Roboto Condensed',
-                              fontSize: 14,
-                              height: 1.35,
-                              color: Color(0xFF555555),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    height: 46,
-                    child: FilledButton(
-                      onPressed: () => Navigator.pop(dialogContext),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF2A77B4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      ),
-                      child: const Text(
-                        'Got it',
-                        style: TextStyle(fontFamily: 'Raleway', fontWeight: FontWeight.w700, fontSize: 16),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
   }
 
   // --------------------------------------------------------------------------
@@ -267,82 +117,150 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
             return Column(
               children: [
                 _buildHeader(context),
+
                 Expanded(
                   child: controller.isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Center(
+                          child: CircularProgressIndicator(),
+                        )
                       : controller.error != null
                           ? Center(
                               child: Padding(
                                 padding: const EdgeInsets.all(24),
-                                child: Text(controller.error!, textAlign: TextAlign.center),
+                                child: Text(
+                                  controller.error!,
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             )
                           : ListView(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                32,
+                              ),
                               children: [
+                                // ------------------------------------------------
+                                // BOOK A ROOM
+                                // ------------------------------------------------
+
                                 _NavPill(
                                   label: 'Book a Room',
                                   onTap: () {
-                                    // Pass the SAME already-created controller instance
-                                    // into the pushed route. A plain Navigator.push does
-                                    // not inherit this screen's provider scope (pushed
-                                    // routes attach to the app's root Navigator, not as
-                                    // a widget-tree child of this screen), so without
-                                    // this CreateBookingScreen would throw
-                                    // "Could not find the correct Provider<BookingController>".
-                                    final bookingController = context.read<BookingController>();
+                                    final bookingController =
+                                        context.read<BookingController>();
+
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (_) => ChangeNotifierProvider.value(
+                                        builder: (_) =>
+                                            ChangeNotifierProvider.value(
                                           value: bookingController,
-                                          child: const CreateBookingScreen(),
+                                          child:
+                                              const CreateBookingScreen(),
                                         ),
                                       ),
                                     );
                                   },
                                 ),
+
                                 const SizedBox(height: 12),
+
+                                // ------------------------------------------------
+                                // YOUR BOOKINGS
+                                // ------------------------------------------------
+
                                 _SectionPanel(
                                   title: 'Your Bookings',
                                   expanded: _bookingsExpanded,
-                                  onToggle: () => setState(() => _bookingsExpanded = !_bookingsExpanded),
-                                  child: controller.activeBookings.isEmpty
-                                      ? const _EmptyRow(message: 'No active bookings yet.')
-                                      : Column(
-                                          children: controller.activeBookings
-                                              .map(
-                                                (booking) => BookingCard(
-                                                  booking: booking,
-                                                  roomLabel: controller.roomLabelFor(booking.roomNodeId),
-                                                  onCancel: () => _confirmCancel(context, controller, booking.bookingId),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
+                                  onToggle: () {
+                                    setState(() {
+                                      _bookingsExpanded =
+                                          !_bookingsExpanded;
+                                    });
+                                  },
+                                  child:
+                                      controller.activeBookings.isEmpty
+                                          ? const _EmptyRow(
+                                              message:
+                                                  'No active bookings yet.',
+                                            )
+                                          : Column(
+                                              children: controller
+                                                  .activeBookings
+                                                  .map(
+                                                    (booking) =>
+                                                        BookingCard(
+                                                      booking: booking,
+                                                      roomLabel: controller
+                                                          .roomLabelFor(
+                                                        booking.roomNodeId,
+                                                      ),
+                                                      onCancel: () =>
+                                                          _confirmCancel(
+                                                        context,
+                                                        controller,
+                                                        booking.bookingId,
+                                                      ),
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            ),
                                 ),
+
                                 const SizedBox(height: 12),
+
+                                // ------------------------------------------------
+                                // BOOKING HISTORY
+                                // ------------------------------------------------
+
                                 _SectionPanel(
                                   title: 'Booking History',
                                   expanded: _historyExpanded,
-                                  onToggle: () => setState(() => _historyExpanded = !_historyExpanded),
-                                  child: controller.historyBookings.isEmpty
-                                      ? const _EmptyRow(message: 'No past bookings yet.')
-                                      : Column(
-                                          children: controller.historyBookings
-                                              .map(
-                                                (booking) => BookingCard(
-                                                  booking: booking,
-                                                  roomLabel: controller.roomLabelFor(booking.roomNodeId),
-                                                ),
-                                              )
-                                              .toList(),
-                                        ),
+                                  onToggle: () {
+                                    setState(() {
+                                      _historyExpanded =
+                                          !_historyExpanded;
+                                    });
+                                  },
+                                  child:
+                                      controller.historyBookings.isEmpty
+                                          ? const _EmptyRow(
+                                              message:
+                                                  'No past bookings yet.',
+                                            )
+                                          : Column(
+                                              children: controller
+                                                  .historyBookings
+                                                  .map(
+                                                    (booking) =>
+                                                        BookingCard(
+                                                      booking: booking,
+                                                      roomLabel: controller
+                                                          .roomLabelFor(
+                                                        booking.roomNodeId,
+                                                      ),
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            ),
                                 ),
+
                                 const SizedBox(height: 12),
-                                _NavPill(
-                                  label: 'How do I book a room?',
-                                  onTap: () => _showBookingInstructions(context),
+
+                                // ------------------------------------------------
+                                // HOW DO I BOOK A ROOM?
+                                // ------------------------------------------------
+
+                                _InstructionPanel(
+                                  expanded: _instructionsExpanded,
+                                  onToggle: () {
+                                    setState(() {
+                                      _instructionsExpanded =
+                                          !_instructionsExpanded;
+                                    });
+                                  },
                                 ),
                               ],
                             ),
@@ -361,7 +279,10 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 12),
+      padding: const EdgeInsets.only(
+        top: 8,
+        bottom: 12,
+      ),
       child: Column(
         children: [
           Stack(
@@ -370,10 +291,14 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF185C92)),
+                  icon: const Icon(
+                    Icons.arrow_back_ios,
+                    color: Color(0xFF185C92),
+                  ),
                   onPressed: () => Navigator.maybePop(context),
                 ),
               ),
+
               RichText(
                 text: const TextSpan(
                   style: TextStyle(
@@ -383,14 +308,26 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
                     height: 1.17,
                   ),
                   children: [
-                    TextSpan(text: 'Campus', style: TextStyle(color: Color(0xFF38358E))),
-                    TextSpan(text: 'GO', style: TextStyle(color: Color(0xFFE51717))),
+                    TextSpan(
+                      text: 'Campus',
+                      style: TextStyle(
+                        color: Color(0xFF38358E),
+                      ),
+                    ),
+                    TextSpan(
+                      text: 'GO',
+                      style: TextStyle(
+                        color: Color(0xFFE51717),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: 4),
+
           const Text(
             'Book a Room',
             style: TextStyle(
@@ -401,7 +338,9 @@ class _BookingsScreenState extends State<_BookingsScreenBody> {
               color: Color(0xFF115388),
             ),
           ),
+
           const SizedBox(height: 8),
+
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 24),
             height: 1.2,
@@ -421,7 +360,10 @@ class _NavPill extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _NavPill({required this.label, required this.onTap});
+  const _NavPill({
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -433,7 +375,9 @@ class _NavPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
           color: const Color(0xFFF9F9F9),
-          border: Border.all(color: const Color(0xFF2A77B4)),
+          border: Border.all(
+            color: const Color(0xFF2A77B4),
+          ),
           borderRadius: BorderRadius.circular(30),
         ),
         child: Row(
@@ -450,7 +394,10 @@ class _NavPill extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFF868DA6)),
+            const Icon(
+              Icons.chevron_right,
+              color: Color(0xFF868DA6),
+            ),
           ],
         ),
       ),
@@ -480,7 +427,9 @@ class _SectionPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF9F9F9),
-        border: Border.all(color: const Color(0xFF2A77B4)),
+        border: Border.all(
+          color: const Color(0xFF2A77B4),
+        ),
         borderRadius: BorderRadius.circular(24),
       ),
       padding: const EdgeInsets.all(12),
@@ -504,17 +453,221 @@ class _SectionPanel extends StatelessWidget {
                   ),
                 ),
                 Icon(
-                  expanded ? Icons.expand_less : Icons.expand_more,
+                  expanded
+                      ? Icons.expand_less
+                      : Icons.expand_more,
                   color: const Color(0xFF868DA6),
                 ),
               ],
             ),
           ),
+
           if (expanded) ...[
             const SizedBox(height: 8),
-            const Divider(color: Color(0xFF2A77B4), thickness: 1, height: 1),
+
+            const Divider(
+              color: Color(0xFF2A77B4),
+              thickness: 1,
+              height: 1,
+            ),
+
             const SizedBox(height: 4),
+
             child,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// HOW DO I BOOK A ROOM?
+// ============================================================================
+
+class _InstructionPanel extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  const _InstructionPanel({
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF9F9F9),
+        border: Border.all(
+          color: const Color(0xFF2A77B4),
+        ),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              children: [
+                Container(
+                  height: 34,
+                  width: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F6FF),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: const Color(0xFF2A77B4),
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.help_outline,
+                    size: 19,
+                    color: Color(0xFF2A77B4),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                const Expanded(
+                  child: Text(
+                    'How do I book a room?',
+                    style: TextStyle(
+                      fontFamily: 'Roboto',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: Color(0xFF606060),
+                    ),
+                  ),
+                ),
+
+                Icon(
+                  expanded
+                      ? Icons.expand_less
+                      : Icons.expand_more,
+                  color: const Color(0xFF868DA6),
+                ),
+              ],
+            ),
+          ),
+
+          // Expanded content
+          if (expanded) ...[
+            const SizedBox(height: 10),
+
+            const Divider(
+              color: Color(0xFF2A77B4),
+              thickness: 1,
+              height: 1,
+            ),
+
+            const SizedBox(height: 14),
+
+            const Text(
+              'Follow these steps to submit a room booking request:',
+              style: TextStyle(
+                fontFamily: 'Roboto Flex',
+                fontSize: 14,
+                color: Color(0xFF555555),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            const _InstructionStep(
+              number: '1',
+              icon: Icons.calendar_today_outlined,
+              title: 'Choose a date',
+              description:
+                  'Select the date on which you need the room.',
+            ),
+
+            const SizedBox(height: 14),
+
+            const _InstructionStep(
+              number: '2',
+              icon: Icons.schedule,
+              title: 'Choose a time',
+              description:
+                  'Select the start and end time for your booking.',
+            ),
+
+            const SizedBox(height: 14),
+
+            const _InstructionStep(
+              number: '3',
+              icon: Icons.meeting_room_outlined,
+              title: 'Select an available room',
+              description:
+                  'Choose a room from the dropdown. Only rooms '
+                  'available for the selected date and time will be shown.',
+            ),
+
+            const SizedBox(height: 14),
+
+            const _InstructionStep(
+              number: '4',
+              icon: Icons.check_circle_outline,
+              title: 'Check the room details',
+              description:
+                  'Review the selected room and booking details '
+                  'before submitting your request.',
+            ),
+
+            const SizedBox(height: 14),
+
+            const _InstructionStep(
+              number: '5',
+              icon: Icons.send_outlined,
+              title: 'Submit your request',
+              description:
+                  'Add any additional information if needed, then '
+                  'submit your booking request for admin approval.',
+            ),
+
+            const SizedBox(height: 16),
+
+            // Important information box
+            Container(
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F6FF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: const Color(0xFF2A77B4),
+                ),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: Color(0xFF2A77B4),
+                  ),
+
+                  SizedBox(width: 10),
+
+                  Expanded(
+                    child: Text(
+                      'Your request is not automatically approved. '
+                      'An administrator must review and approve the '
+                      'booking before the room is confirmed.',
+                      style: TextStyle(
+                        fontFamily: 'Roboto Condensed',
+                        fontSize: 13,
+                        height: 1.35,
+                        color: Color(0xFF555555),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -528,13 +681,21 @@ class _SectionPanel extends StatelessWidget {
 
 class _EmptyRow extends StatelessWidget {
   final String message;
-  const _EmptyRow({required this.message});
+
+  const _EmptyRow({
+    required this.message,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(message, style: const TextStyle(color: Colors.grey)),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Colors.grey,
+        ),
+      ),
     );
   }
 }
@@ -561,33 +722,49 @@ class _InstructionStep extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Number
         Container(
-          height: 34,
-          width: 34,
+          height: 32,
+          width: 32,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(color: Color(0xFF2A77B4), shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: Color(0xFF2A77B4),
+            shape: BoxShape.circle,
+          ),
           child: Text(
             number,
             style: const TextStyle(
               fontFamily: 'Raleway',
               fontWeight: FontWeight.w800,
-              fontSize: 15,
+              fontSize: 14,
               color: Colors.white,
             ),
           ),
         ),
-        const SizedBox(width: 12),
+
+        const SizedBox(width: 10),
+
+        // Icon
         Container(
-          height: 34,
-          width: 34,
+          height: 32,
+          width: 32,
           decoration: BoxDecoration(
             color: const Color(0xFFF1F6FF),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFF2A77B4)),
+            border: Border.all(
+              color: const Color(0xFF2A77B4),
+            ),
           ),
-          child: Icon(icon, size: 18, color: const Color(0xFF2A77B4)),
+          child: Icon(
+            icon,
+            size: 17,
+            color: const Color(0xFF2A77B4),
+          ),
         ),
-        const SizedBox(width: 12),
+
+        const SizedBox(width: 10),
+
+        // Text
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -597,16 +774,18 @@ class _InstructionStep extends StatelessWidget {
                 style: const TextStyle(
                   fontFamily: 'Roboto Flex',
                   fontWeight: FontWeight.w700,
-                  fontSize: 15,
+                  fontSize: 14,
                   color: Color(0xFF424242),
                 ),
               ),
+
               const SizedBox(height: 3),
+
               Text(
                 description,
                 style: const TextStyle(
                   fontFamily: 'Roboto Condensed',
-                  fontSize: 14,
+                  fontSize: 13,
                   height: 1.3,
                   color: Color(0xFF747474),
                 ),

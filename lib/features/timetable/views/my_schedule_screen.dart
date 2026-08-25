@@ -127,32 +127,51 @@ class _MyScheduleScreenState extends State<MyScheduleScreen> {
               return _errorState();
             }
 
-            return RefreshIndicator(
-              onRefresh: _controller.loadSchedule,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: [
-                  _findRoomBanner(),
-                  Transform.translate(
-                    // Keep the day selector in the same place while the
-                    // artwork continues behind the rounded timetable surface.
-                    offset: const Offset(0, -70),
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: WeeklyTimetableView(
-                        days: ScheduleController.weekDays,
-                        selectedDay: _controller.selectedDay,
-                        entries: _controller.selectedDayEntries,
-                        currentClass: _controller.currentClass,
-                        onDaySelected: _controller.setSelectedDay,
-                        onNavigate: _handleNavigate,
-                        onRemove: _removeEntry,
-                        isBusy: _controller.isBusy,
-                      ),
-                    ),
+            return Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: _findRoomBanner(),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 160,
+                  bottom: 0,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      return RefreshIndicator(
+                        onRefresh: _controller.loadSchedule,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: constraints.maxHeight,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: WeeklyTimetableView(
+                                  days: ScheduleController.weekDays,
+                                  selectedDay: _controller.selectedDay,
+                                  entries: _controller.selectedDayEntries,
+                                  currentClass: _controller.currentClass,
+                                  onDaySelected: _controller.setSelectedDay,
+                                  onNavigate: _handleNavigate,
+                                  onRemove: _removeEntry,
+                                  isBusy: _controller.isBusy,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),

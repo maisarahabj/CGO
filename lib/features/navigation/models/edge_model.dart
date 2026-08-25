@@ -10,6 +10,7 @@ class EdgeModel {
     this.distanceWeight,
     this.isAccessible = true,
     this.isActive = true,
+    this.closureReason,
   });
 
   final String edgeId;
@@ -21,6 +22,7 @@ class EdgeModel {
   final double? distanceWeight;
   final bool isAccessible;
   final bool isActive;
+  final String? closureReason;
 
   /// The number Dijkstra should minimise.
   ///
@@ -72,6 +74,7 @@ class EdgeModel {
       distanceWeight: (json['distance_weight'] as num?)?.toDouble(),
       isAccessible: json['is_accessible'] as bool? ?? true,
       isActive: json['is_active'] as bool? ?? true,
+      closureReason: json['closure_reason'] as String?,
     );
   }
 
@@ -87,6 +90,7 @@ class EdgeModel {
       'distance_weight': distanceWeight,
       'is_accessible': isAccessible,
       'is_active': isActive,
+      'closure_reason': closureReason,
     };
   }
 }

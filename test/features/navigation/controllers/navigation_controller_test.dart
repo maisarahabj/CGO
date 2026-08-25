@@ -100,6 +100,27 @@ void main() {
       expect(repository.loadCount, 1);
     });
 
+    test('refreshes active edges before an explicit route calculation', () async {
+      await controller.loadGraph();
+      final byId = {
+        for (final destination in controller.destinations)
+          destination.nodeId: destination,
+      };
+      controller.selectCurrentLocation(byId['A']!);
+      controller.selectDestination(byId['C']!);
+      controller.setAccessibleOnly(false);
+
+      repository.graph = _testGraphWithoutDirectEdge();
+
+      final result = await controller.refreshGraphAndCalculateRoute();
+
+      expect(repository.loadCount, 2);
+      expect(result, isNotNull);
+      expect(result!.nodeIds, ['A', 'B', 'C']);
+      expect(result.edgeIds, ['E_AB', 'E_BC']);
+      expect(result.totalCost, 4);
+    });
+
     test('clears a selected node when its visible text is edited', () async {
       await controller.loadGraph();
       final location = controller.destinations.first;
@@ -159,10 +180,20 @@ NavigationGraphData _testGraph() {
   return NavigationGraphData(floors: const [floor], nodes: nodes, edges: edges);
 }
 
+NavigationGraphData _testGraphWithoutDirectEdge() {
+  final graph = _testGraph();
+
+  return NavigationGraphData(
+    floors: graph.floors,
+    nodes: graph.nodes,
+    edges: graph.edges.where((edge) => edge.edgeId != 'E_AC').toList(),
+  );
+}
+
 class _FakeNavigationRepository implements NavigationRepository {
   _FakeNavigationRepository(this.graph);
 
-  final NavigationGraphData graph;
+  NavigationGraphData graph;
   int loadCount = 0;
   final List<bool> requestedAccessibilityValues = [];
 

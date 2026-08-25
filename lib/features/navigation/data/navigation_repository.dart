@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -34,7 +32,7 @@ class NavigationRepository {
 
   static const String _edgeColumns =
       'edge_id, source_node_id, target_node_id, traversal_cost, edge_type, '
-      'description, distance_weight, is_accessible, is_active';
+      'description, distance_weight, is_accessible, is_active, closure_reason';
 
   static const String _qrColumns =
       'qr_id, node_id, qr_value, location_description, status, qr_image_path';
@@ -102,6 +100,65 @@ class NavigationRepository {
       return edges;
     } catch (error) {
       throw AppException('Unable to load navigation edges.', cause: error);
+    }
+  }
+
+  /// Loads every navigation edge for the administrator, including closed
+  /// edges. User and guest routing must continue using [fetchActiveEdges].
+  Future<List<EdgeModel>> fetchManageableEdges() async {
+    try {
+      final rows = await _client
+          .from(DatabaseTables.edges)
+          .select(_edgeColumns)
+          .order('edge_id');
+
+      return rows
+          .map((row) => EdgeModel.fromJson(Map<String, dynamic>.from(row)))
+          .toList(growable: false);
+    } catch (error) {
+      throw AppException('Unable to load route segments.', cause: error);
+    }
+  }
+
+  /// Opens or closes one existing edge without changing its accessibility.
+  ///
+  /// `is_active` answers whether the segment is currently usable.
+  /// `is_accessible` remains an independent property and is deliberately not
+  /// included in this update payload.
+  Future<EdgeModel> updateEdgeActiveState({
+    required String edgeId,
+    required bool isActive,
+    String? closureReason,
+  }) async {
+    final normalizedEdgeId = edgeId.trim();
+
+    if (normalizedEdgeId.isEmpty) {
+      throw const AppException('Select a route segment to manage.');
+    }
+
+    final normalizedReason = closureReason?.trim();
+
+    if (!isActive && (normalizedReason == null || normalizedReason.isEmpty)) {
+      throw const AppException('Select a reason before closing this route.');
+    }
+
+    try {
+      final row = await _client
+          .from(DatabaseTables.edges)
+          .update(<String, dynamic>{
+            'is_active': isActive,
+            'closure_reason': isActive ? null : normalizedReason,
+          })
+          .eq('edge_id', normalizedEdgeId)
+          .select(_edgeColumns)
+          .single();
+
+      return EdgeModel.fromJson(Map<String, dynamic>.from(row));
+    } catch (error) {
+      throw AppException(
+        'Unable to ${isActive ? 'reopen' : 'close'} this route segment.',
+        cause: error,
+      );
     }
   }
 

@@ -21,8 +21,6 @@ abstract final class AppRoutes {
 
   static const String qrScanner = '/navigation/qr-scanner';
 
-  static const String adminNotifications = '/admin/notifications';
-
   static const String adminBookingRequests = '/admin/booking-requests';
 
   static const String adminRoomAvailability = '/admin/rooms-availability';

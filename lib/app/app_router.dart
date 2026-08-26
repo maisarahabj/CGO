@@ -13,7 +13,6 @@ import '../features/navigation/views/admin_manage_navigation_screen.dart';
 import '../features/navigation/views/admin_qr_checkpoints_screen.dart';
 import '../features/navigation/views/qr_scanner_screen.dart';
 import '../features/navigation/views/visit_history_screen.dart';
-import '../features/notifications/views/admin_manage_notifications_screen.dart';
 import '../features/notifications/views/notifications_screen.dart';
 import '../features/profile/views/edit_profile_screen.dart';
 import '../features/settings/views/settings_screen.dart';
@@ -156,13 +155,6 @@ abstract final class AppRouter {
         return MaterialPageRoute<NodeModel>(
           settings: settings,
           builder: (_) => const QrScannerScreen(),
-        );
-
-      case AppRoutes.adminNotifications:
-        return _adminRoute(
-          settings: settings,
-          authController: authController,
-          screen: const AdminManageNotificationsScreen(),
         );
 
       case AppRoutes.adminBookingRequests:

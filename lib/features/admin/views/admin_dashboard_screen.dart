@@ -79,11 +79,6 @@ class AdminDashboardScreen extends StatelessWidget {
                     profile: profile,
                     onMenuPressed: () =>
                         Scaffold.of(scaffoldContext).openDrawer(),
-                    onNotificationsPressed: () {
-                      Navigator.of(
-                        context,
-                      ).pushNamed(AppRoutes.adminNotifications);
-                    },
                   );
                 },
               ),
@@ -204,15 +199,10 @@ class AdminDashboardScreen extends StatelessWidget {
 }
 
 class _AdminTopBar extends StatelessWidget {
-  const _AdminTopBar({
-    required this.profile,
-    required this.onMenuPressed,
-    required this.onNotificationsPressed,
-  });
+  const _AdminTopBar({required this.profile, required this.onMenuPressed});
 
   final ProfileModel? profile;
   final VoidCallback onMenuPressed;
-  final VoidCallback onNotificationsPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -237,46 +227,6 @@ class _AdminTopBar extends StatelessWidget {
               ),
             ),
             const Spacer(),
-            IconButton(
-              tooltip: 'Admin notifications',
-              onPressed: onNotificationsPressed,
-              icon: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  SvgPicture.asset(
-                    AppAssets.drawerNotification,
-                    width: 28,
-                    height: 30,
-                  ),
-                  Positioned(
-                    top: -8,
-                    right: -11,
-                    child: Container(
-                      constraints: const BoxConstraints(
-                        minWidth: 26,
-                        minHeight: 20,
-                      ),
-                      alignment: Alignment.center,
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF3F46),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        '13',
-                        style: TextStyle(
-                          fontFamily: 'Roboto',
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),
